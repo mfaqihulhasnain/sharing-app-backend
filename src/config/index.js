@@ -1,5 +1,5 @@
 const { env } = require("./env");
-const { connectDatabase } = require("./db");
+const { connectDatabase, disconnectDatabase } = require("./db");
 
 // Purpose: expose shared config entrypoints from one place.
-module.exports = { env, connectDatabase };
+module.exports = { env, connectDatabase, disconnectDatabase };

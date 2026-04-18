@@ -16,7 +16,11 @@ const envSchema = z.object({
   ),
   PORT: z.preprocess(emptyToUndefined, z.coerce.number().int().positive().default(5000)),
   CLIENT_ORIGIN: z.preprocess(emptyToUndefined, z.string().optional()),
-  DATABASE_URL: z.preprocess(emptyToUndefined, z.string().optional()),
+  DATABASE_URL: z.preprocess(
+    emptyToUndefined,
+    z.string().min(1, "DATABASE_URL is required")
+  ),
+  DIRECT_URL: z.preprocess(emptyToUndefined, z.string().optional()),
   AUTH_STRATEGY: z.preprocess(emptyToUndefined, z.string().optional()),
   AUTH_SECRET: z.preprocess(emptyToUndefined, z.string().optional()),
 });

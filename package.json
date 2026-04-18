@@ -7,13 +7,19 @@
     "dev": "nodemon server.js",
     "start": "node server.js",
     "lint": "eslint src/",
-    "test": "jest"
+    "test": "jest",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "prisma:studio": "prisma studio",
+    "prisma:seed": "node prisma/seed.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@prisma/client": "^6.15.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
@@ -27,6 +33,10 @@
   "devDependencies": {
     "eslint": "^10.2.0",
     "nodemon": "^3.1.14",
-    "prettier": "^3.8.2"
+    "prettier": "^3.8.2",
+    "prisma": "^6.15.0"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   }
 }

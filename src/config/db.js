@@ -1,6 +1,12 @@
-// Purpose: own database bootstrap once MongoDB or PostgreSQL is confirmed.
+const prisma = require("../lib/prisma");
+
+// Purpose: own database bootstrap and lifecycle for PostgreSQL via Prisma.
 const connectDatabase = async () => {
-  // TODO: implement the real database connection for the selected provider.
+  await prisma.$connect();
 };
 
-module.exports = { connectDatabase };
+const disconnectDatabase = async () => {
+  await prisma.$disconnect();
+};
+
+module.exports = { connectDatabase, disconnectDatabase };
