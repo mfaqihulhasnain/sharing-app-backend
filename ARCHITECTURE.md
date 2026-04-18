@@ -45,5 +45,57 @@
 - Always check whether the utility already exists in `src/utils/`.
 - Document why the package was added in a nearby code comment.
 
+## Current Implementation Status (April 2026)
+- Database infrastructure is now implemented with Supabase PostgreSQL + Prisma.
+- Infra database lifecycle is active in:
+  - `src/lib/prisma.js`
+  - `src/config/db.js`
+  - `server.js` (connect before listen, graceful disconnect on shutdown)
+- Prisma assets are present in:
+  - `prisma/schema.prisma`
+  - `prisma/seed.js`
+- Prisma migrations are not tracked in the current schema-first workflow.
+- API module business logic under `src/modules/**` is still scaffolded and intentionally separate from this infra setup.
+
+## Supabase + Prisma Connection Strategy (Current)
+- `DATABASE_URL` is used for app/runtime connectivity.
+- `DIRECT_URL` is used for Prisma schema/admin operations.
+- Recommended practical setup in this project:
+  - `DATABASE_URL`: Supabase transaction pooler (`pooler` host, port `6543`)
+  - `DIRECT_URL`: Supabase session/direct path (`pooler` host port `5432`, or `db.<project-ref>.supabase.co:5432` when reachable)
+
+## Database Workflow (Current Team Choice: Schema-First)
+- This backend currently follows schema-first DB sync (not migration-first governance).
+- Standard flow:
+1. Update `prisma/schema.prisma`.
+2. Run `npm run prisma:generate`.
+3. Run `npx prisma db push`.
+4. Run `npm run prisma:seed` (optional baseline data).
+- `prisma migrate dev/deploy` is not part of the default workflow right now.
+- If migration-first is adopted later, formalize it here before using migrations in team flow.
+
+## Current Prisma Data Model
+- `User`
+  - identity/profile fields plus auth hash (`passwordHash`)
+- `Share`
+  - post container with `senderId`, optional `text`, and timestamps
+- `ShareRecipient`
+  - join table controlling private audience visibility
+- `ShareFile`
+  - file metadata linked to shares (`name`, `mimeType`, `sizeBytes`, `storagePath`)
+- Relation behaviors currently enforced by schema:
+  - `Share` delete cascades to `ShareRecipient` and `ShareFile`
+  - `Share.senderId -> User.id` uses restrict-on-delete
+
+## Backend Database Scripts
+- `npm run prisma:generate` -> generate Prisma client
+- `npm run prisma:seed` -> seed baseline users/data
+- `npm run prisma:studio` -> open Prisma Studio
+
+## Environment Variables Used for DB
+- `DATABASE_URL`
+- `DIRECT_URL`
+- Keep both documented in `.env.example` and validated in `src/config/env.js`.
+- Keep credentials URL-safe (example: encode `@` as `%40` in passwords).
 
 
