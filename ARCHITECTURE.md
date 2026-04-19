@@ -68,9 +68,9 @@
 - This backend currently follows schema-first DB sync (not migration-first governance).
 - Standard flow:
 1. Update `prisma/schema.prisma`.
-2. Run `npm run prisma:generate`.
+2. Run `npx prisma generate`.
 3. Run `npx prisma db push`.
-4. Run `npm run prisma:seed` (optional baseline data).
+4. Run `npx prisma db seed` (optional baseline data).
 - `prisma migrate dev/deploy` is not part of the default workflow right now.
 - If migration-first is adopted later, formalize it here before using migrations in team flow.
 
