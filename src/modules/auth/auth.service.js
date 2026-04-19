@@ -33,7 +33,7 @@ const getRefreshExpiresAt = () =>
 const signAccessToken = ({ userId, sessionId }) =>
   jwt.sign(
     {
-      sub: userId,
+      uid: userId,
       sid: sessionId,
       typ: ACCESS_TOKEN_TYPE,
     },
@@ -46,7 +46,7 @@ const signAccessToken = ({ userId, sessionId }) =>
 const signRefreshToken = ({ userId, sessionId }) =>
   jwt.sign(
     {
-      sub: userId,
+      uid: userId,
       sid: sessionId,
       typ: REFRESH_TOKEN_TYPE,
     },
@@ -61,8 +61,8 @@ const verifyRefreshToken = (refreshToken) => {
     const payload = jwt.verify(refreshToken, env.AUTH_SECRET);
     if (
       payload?.typ !== REFRESH_TOKEN_TYPE ||
-      typeof payload.sub !== "string" ||
-      typeof payload.sid !== "string"
+      !Number.isInteger(payload.uid) ||
+      !Number.isInteger(payload.sid)
     ) {
       throw new ApiError(401, "Invalid refresh token payload");
     }
@@ -243,7 +243,7 @@ const authService = {
     const session = await prisma.session.findFirst({
       where: {
         id: payload.sid,
-        userId: payload.sub,
+        userId: payload.uid,
       },
       include: {
         user: true,

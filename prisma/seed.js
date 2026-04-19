@@ -8,32 +8,26 @@ const SALT_ROUNDS = 10;
 
 const usersSeed = [
   {
-    id: "usr_you",
     name: "You",
     email: "you@sharing.local",
   },
   {
-    id: "usr_ali",
     name: "Ali",
     email: "ali@sharing.local",
   },
   {
-    id: "usr_sara",
     name: "Sara",
     email: "sara@sharing.local",
   },
   {
-    id: "usr_maya",
     name: "Maya",
     email: "maya@sharing.local",
   },
   {
-    id: "usr_ahmed",
     name: "Ahmed",
     email: "ahmed@sharing.local",
   },
   {
-    id: "usr_noah",
     name: "Noah",
     email: "noah@sharing.local",
   },
@@ -41,18 +35,16 @@ const usersSeed = [
 
 const sharesSeed = [
   {
-    id: "shr_1",
-    senderId: "usr_ali",
+    senderEmail: "ali@sharing.local",
     createdAt: "2026-04-16T09:14:00+05:00",
-    audienceIds: [],
+    audienceEmails: [],
     text: "Morning update: drop any files or notes for today's Wi-Fi handoff here so the whole room can stay aligned.",
     files: [],
   },
   {
-    id: "shr_2",
-    senderId: "usr_sara",
+    senderEmail: "sara@sharing.local",
     createdAt: "2026-04-16T09:42:00+05:00",
-    audienceIds: ["usr_you", "usr_maya"],
+    audienceEmails: ["you@sharing.local", "maya@sharing.local"],
     text: "Latest floor plan attached for Maya and this device.",
     files: [
       {
@@ -63,18 +55,16 @@ const sharesSeed = [
     ],
   },
   {
-    id: "shr_3",
-    senderId: "usr_maya",
+    senderEmail: "maya@sharing.local",
     createdAt: "2026-04-16T10:03:00+05:00",
-    audienceIds: [],
+    audienceEmails: [],
     text: "Fresh signage ideas are ready. If anyone prints samples locally, place the exports here instead of sending them around one by one.",
     files: [],
   },
   {
-    id: "shr_4",
-    senderId: "usr_noah",
+    senderEmail: "noah@sharing.local",
     createdAt: "2026-04-16T10:37:00+05:00",
-    audienceIds: ["usr_you"],
+    audienceEmails: ["you@sharing.local"],
     text: "",
     files: [
       {
@@ -86,10 +76,9 @@ const sharesSeed = [
     ],
   },
   {
-    id: "shr_5",
-    senderId: "usr_ahmed",
+    senderEmail: "ahmed@sharing.local",
     createdAt: "2026-04-16T11:08:00+05:00",
-    audienceIds: [],
+    audienceEmails: [],
     text: "",
     files: [
       {
@@ -100,10 +89,9 @@ const sharesSeed = [
     ],
   },
   {
-    id: "shr_6",
-    senderId: "usr_sara",
+    senderEmail: "sara@sharing.local",
     createdAt: "2026-04-16T11:26:00+05:00",
-    audienceIds: ["usr_ali", "usr_ahmed"],
+    audienceEmails: ["ali@sharing.local", "ahmed@sharing.local"],
     text: "Quiet note for Ali and Ahmed: booth invoice copy is on the board for your review before noon.",
     files: [],
   },
@@ -135,69 +123,91 @@ async function clearExistingData() {
 async function seedUsers() {
   log("Seeding users...");
   const passwordHash = await bcrypt.hash(SEED_PASSWORD, SALT_ROUNDS);
+  const userIdByEmail = new Map();
 
   for (const user of usersSeed) {
-    await prisma.user.create({
+    const createdUser = await prisma.user.create({
       data: {
-        id: user.id,
         name: user.name,
         email: user.email,
         passwordHash,
       },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+      },
     });
 
-    log(`Created user: ${user.name} (${user.email})`);
+    userIdByEmail.set(createdUser.email, createdUser.id);
+    log(`Created user #${createdUser.id}: ${createdUser.name} (${createdUser.email})`);
   }
 
   log(`Users seeded: ${usersSeed.length}`);
+
+  return userIdByEmail;
 }
 
-function formatAudienceLabel(audienceIds) {
-  if (!audienceIds.length) return "everyone";
+function formatAudienceLabel(audienceEmails) {
+  if (!audienceEmails.length) return "everyone";
 
   const names = usersSeed
-    .filter((user) => audienceIds.includes(user.id))
+    .filter((user) => audienceEmails.includes(user.email))
     .map((user) => user.name);
 
   return names.join(", ");
 }
 
-async function seedShares() {
+function resolveUserId(userIdByEmail, email, context) {
+  const userId = userIdByEmail.get(email);
+
+  if (!Number.isInteger(userId)) {
+    throw new Error(`Unable to resolve user ID for ${context}: ${email}`);
+  }
+
+  return userId;
+}
+
+async function seedShares(userIdByEmail) {
   log("Seeding shares...");
 
   for (const share of sharesSeed) {
     const shareDate = new Date(share.createdAt);
+    const senderId = resolveUserId(userIdByEmail, share.senderEmail, "sender");
 
-    await prisma.share.create({
+    const recipientRows = share.audienceEmails.map((email) => ({
+      userId: resolveUserId(userIdByEmail, email, "audience"),
+      createdAt: shareDate,
+    }));
+
+    const createdShare = await prisma.share.create({
       data: {
-        id: share.id,
-        senderId: share.senderId,
+        senderId,
         text: share.text || null,
         createdAt: shareDate,
         updatedAt: shareDate,
         recipients: {
-          create: share.audienceIds.map((userId) => ({
-            userId,
-            createdAt: shareDate,
-          })),
+          create: recipientRows,
         },
         files: {
           create: share.files.map((file, index) => ({
-            id: `fil_${share.id}_${index + 1}`,
             name: file.name,
             mimeType: file.mimeType,
             sizeBytes: file.sizeBytes,
-            storagePath: `seed/${share.id}/${file.name}`,
+            storagePath: `seed/share-${shareDate.getTime()}-${index + 1}-${file.name}`,
             createdAt: shareDate,
             updatedAt: shareDate,
           })),
         },
       },
+      select: {
+        id: true,
+      },
     });
 
     log(
-      `Created share: ${share.id} | audience: ${formatAudienceLabel(
-        share.audienceIds
+      `Created share #${createdShare.id} | audience: ${formatAudienceLabel(
+        share.audienceEmails
       )} | files: ${share.files.length}`
     );
   }
@@ -218,9 +228,7 @@ async function printSummary() {
   log(`- shares: ${shares}`);
   log(`- recipients: ${recipients}`);
   log(`- files: ${files}`);
-  log(
-    `Default seeded password for all users: ${SEED_PASSWORD}`
-  );
+  log(`Default seeded password for all users: ${SEED_PASSWORD}`);
 }
 
 async function runSeed() {
@@ -238,8 +246,8 @@ async function runSeed() {
   log("Database connection established.");
 
   await clearExistingData();
-  await seedUsers();
-  await seedShares();
+  const userIdByEmail = await seedUsers();
+  await seedShares(userIdByEmail);
   await printSummary();
 
   log("Seed completed successfully.");

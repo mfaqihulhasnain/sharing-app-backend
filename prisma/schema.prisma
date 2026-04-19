@@ -9,7 +9,7 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
+  id           Int      @id @default(autoincrement())
   email        String   @unique
   name         String
   passwordHash String
@@ -26,8 +26,8 @@ model User {
 }
 
 model Session {
-  id               String    @id @default(cuid())
-  userId           String
+  id               Int       @id @default(autoincrement())
+  userId           Int
   refreshTokenHash String
   expiresAt        DateTime
   revokedAt        DateTime?
@@ -41,8 +41,8 @@ model Session {
 }
 
 model Share {
-  id        String   @id @default(cuid())
-  senderId  String
+  id        Int      @id @default(autoincrement())
+  senderId  Int
   text      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -56,9 +56,9 @@ model Share {
 }
 
 model ShareRecipient {
-  id        String   @id @default(cuid())
-  shareId   String
-  userId    String
+  id        Int      @id @default(autoincrement())
+  shareId   Int
+  userId    Int
   createdAt DateTime @default(now())
 
   share Share @relation(fields: [shareId], references: [id], onDelete: Cascade)
@@ -69,8 +69,8 @@ model ShareRecipient {
 }
 
 model ShareFile {
-  id          String   @id @default(cuid())
-  shareId     String
+  id          Int      @id @default(autoincrement())
+  shareId     Int
   name        String
   mimeType    String
   sizeBytes   Int

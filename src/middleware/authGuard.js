@@ -32,8 +32,8 @@ const authGuard = async (req, _res, next) => {
 
     if (
       payload?.typ !== "access" ||
-      typeof payload.sub !== "string" ||
-      typeof payload.sid !== "string"
+      !Number.isInteger(payload.uid) ||
+      !Number.isInteger(payload.sid)
     ) {
       throw new ApiError(401, "Invalid access token payload");
     }
@@ -41,7 +41,7 @@ const authGuard = async (req, _res, next) => {
     const session = await prisma.session.findFirst({
       where: {
         id: payload.sid,
-        userId: payload.sub,
+        userId: payload.uid,
         revokedAt: null,
         expiresAt: {
           gt: new Date(),
