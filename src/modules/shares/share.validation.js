@@ -3,4 +3,4 @@ const shareValidation = {
   // TODO: implement share request schemas.
 };
 
-module.exports = shareValidation;
+export default shareValidation;

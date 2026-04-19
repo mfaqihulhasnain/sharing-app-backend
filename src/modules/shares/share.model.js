@@ -3,4 +3,4 @@ const shareModel = {
   // TODO: add the share model or schema for the selected database.
 };
 
-module.exports = shareModel;
+export default shareModel;

@@ -3,4 +3,4 @@ const shareService = {
   // TODO: implement share workflows.
 };
 
-module.exports = shareService;
+export default shareService;

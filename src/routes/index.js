@@ -1,8 +1,8 @@
-const express = require("express");
-const ApiResponse = require("../utils/ApiResponse");
-const authRoutes = require("../modules/auth/auth.routes");
-const userRoutes = require("../modules/users/user.routes");
-const shareRoutes = require("../modules/shares/share.routes");
+import express from "express";
+import ApiResponse from "../utils/ApiResponse.js";
+import authRoutes from "../modules/auth/auth.routes.js";
+import userRoutes from "../modules/users/user.routes.js";
+import shareRoutes from "../modules/shares/share.routes.js";
 
 // Purpose: register versioned API routes in one central place.
 const router = express.Router();
@@ -14,4 +14,4 @@ router.use("/auth", authRoutes);
 router.use("/users", userRoutes);
 router.use("/shares", shareRoutes);
 
-module.exports = router;
+export default router;

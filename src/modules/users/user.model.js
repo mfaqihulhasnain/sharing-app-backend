@@ -3,4 +3,4 @@ const userModel = {
   // TODO: add the user model or schema for the selected database.
 };
 
-module.exports = userModel;
+export default userModel;

@@ -3,4 +3,4 @@ const userController = {
   // TODO: add user controller handlers.
 };
 
-module.exports = userController;
+export default userController;

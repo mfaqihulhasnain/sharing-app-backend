@@ -1,5 +1,5 @@
-const app = require("./src/app");
-const { connectDatabase, disconnectDatabase } = require("./src/config");
+import app from "./src/app.js";
+import { connectDatabase, disconnectDatabase } from "./src/config/index.js";
 
 let server;
 

@@ -3,4 +3,4 @@ const userValidation = {
   // TODO: implement user request schemas.
 };
 
-module.exports = userValidation;
+export default userValidation;

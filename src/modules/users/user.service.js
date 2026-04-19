@@ -3,4 +3,4 @@ const userService = {
   // TODO: implement user workflows.
 };
 
-module.exports = userService;
+export default userService;

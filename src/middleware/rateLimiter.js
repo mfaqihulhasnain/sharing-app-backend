@@ -1,4 +1,4 @@
-const rateLimit = require("express-rate-limit");
+import rateLimit from "express-rate-limit";
 
 // Purpose: provide a single rate-limit policy that can be tuned by environment.
 const rateLimiter = rateLimit({
@@ -6,4 +6,4 @@ const rateLimiter = rateLimit({
   max: 1000,
 });
 
-module.exports = rateLimiter;
+export default rateLimiter;

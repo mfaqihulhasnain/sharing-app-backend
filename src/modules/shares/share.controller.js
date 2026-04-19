@@ -3,4 +3,4 @@ const shareController = {
   // TODO: add share controller handlers.
 };
 
-module.exports = shareController;
+export default shareController;

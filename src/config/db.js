@@ -1,4 +1,4 @@
-const prisma = require("../lib/prisma");
+import prisma from "../lib/prisma.js";
 
 // Purpose: own database bootstrap and lifecycle for PostgreSQL via Prisma.
 const connectDatabase = async () => {
@@ -9,4 +9,4 @@ const disconnectDatabase = async () => {
   await prisma.$disconnect();
 };
 
-module.exports = { connectDatabase, disconnectDatabase };
+export { connectDatabase, disconnectDatabase };
