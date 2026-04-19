@@ -7,3 +7,85 @@ datasource db {
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
+
+enum UserRole {
+  MEMBER
+  ADMIN
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  username     String   @unique
+  name         String
+  passwordHash String
+  role         UserRole @default(MEMBER)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sentShares      Share[]          @relation("SentShares")
+  shareRecipients ShareRecipient[]
+  sessions        Session[]
+
+  @@index([name])
+  @@index([isActive, createdAt])
+}
+
+model Session {
+  id               String    @id @default(cuid())
+  userId           String
+  refreshTokenHash String
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Share {
+  id        String   @id @default(cuid())
+  senderId  String
+  text      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sender     User             @relation("SentShares", fields: [senderId], references: [id], onDelete: Restrict)
+  recipients ShareRecipient[]
+  files      ShareFile[]
+
+  @@index([createdAt])
+  @@index([senderId, createdAt])
+}
+
+model ShareRecipient {
+  id        String   @id @default(cuid())
+  shareId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  share Share @relation(fields: [shareId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([shareId, userId])
+  @@index([userId, createdAt])
+}
+
+model ShareFile {
+  id          String   @id @default(cuid())
+  shareId     String
+  name        String
+  mimeType    String
+  sizeBytes   Int
+  storagePath String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  share Share @relation(fields: [shareId], references: [id], onDelete: Cascade)
+
+  @@index([shareId, createdAt])
+}
