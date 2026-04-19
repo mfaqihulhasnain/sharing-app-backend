@@ -3,14 +3,6 @@ import { z } from "zod";
 const register = z.object({
   body: z
     .object({
-      name: z.string().trim().min(2).max(80),
-      username: z
-        .string()
-        .trim()
-        .toLowerCase()
-        .min(3)
-        .max(30)
-        .regex(/^[a-z0-9_]+$/, "username can include only letters, numbers, and _"),
       email: z.string().trim().toLowerCase().email().max(150),
       password: z
         .string()
@@ -27,7 +19,7 @@ const register = z.object({
 const login = z.object({
   body: z
     .object({
-      identifier: z.string().trim().min(3).max(150),
+      email: z.string().trim().toLowerCase().email().max(150),
       password: z.string().min(1).max(72),
     })
     .strict(),

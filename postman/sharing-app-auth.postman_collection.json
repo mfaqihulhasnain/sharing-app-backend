@@ -50,7 +50,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"name\": \"{{newName}}\",\n  \"username\": \"{{newUsername}}\",\n  \"email\": \"{{newEmail}}\",\n  \"password\": \"{{newPassword}}\"\n}"
+          "raw": "{\n  \"email\": \"{{newEmail}}\",\n  \"password\": \"{{newPassword}}\"\n}"
         },
         "url": {
           "raw": "{{baseUrl}}/auth/register",
@@ -91,7 +91,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"identifier\": \"{{seedIdentifier}}\",\n  \"password\": \"{{seedPassword}}\"\n}"
+          "raw": "{\n  \"email\": \"{{seedEmail}}\",\n  \"password\": \"{{seedPassword}}\"\n}"
         },
         "url": {
           "raw": "{{baseUrl}}/auth/login",
@@ -132,7 +132,7 @@
         ],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"identifier\": \"{{newEmail}}\",\n  \"password\": \"{{newPassword}}\"\n}"
+          "raw": "{\n  \"email\": \"{{newEmail}}\",\n  \"password\": \"{{newPassword}}\"\n}"
         },
         "url": {
           "raw": "{{baseUrl}}/auth/login",
@@ -274,20 +274,12 @@
       "value": ""
     },
     {
-      "key": "seedIdentifier",
-      "value": "you"
+      "key": "seedEmail",
+      "value": "you@sharing.local"
     },
     {
       "key": "seedPassword",
       "value": "Password@123"
-    },
-    {
-      "key": "newName",
-      "value": "Test User"
-    },
-    {
-      "key": "newUsername",
-      "value": "testuser_01"
     },
     {
       "key": "newEmail",

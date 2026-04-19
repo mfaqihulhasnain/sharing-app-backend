@@ -52,7 +52,6 @@ const authGuard = async (req, _res, next) => {
           select: {
             id: true,
             email: true,
-            username: true,
             name: true,
             isActive: true,
           },

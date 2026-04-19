@@ -11,7 +11,6 @@ const REFRESH_TOKEN_TYPE = "refresh";
 const toPublicUser = (user) => ({
   id: user.id,
   name: user.name,
-  username: user.username,
   email: user.email,
   isActive: user.isActive,
   createdAt: user.createdAt,
@@ -152,48 +151,54 @@ const findActiveUserById = (userId) =>
     },
   });
 
-const normalizeIdentity = (identifier) => identifier.trim().toLowerCase();
+const normalizeEmail = (email) => email.trim().toLowerCase();
+const createDisplayNameFromEmail = (email) => {
+  const localPart = email.split("@")[0] || "User";
+  const cleaned = localPart.replace(/[^a-zA-Z0-9]+/g, " ").trim();
+
+  if (!cleaned) return "User";
+
+  return cleaned
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((segment) => `${segment[0].toUpperCase()}${segment.slice(1).toLowerCase()}`)
+    .join(" ");
+};
 
 // Purpose: contain auth business rules without touching Express req/res objects.
 const authService = {
-  async register({ name, username, email, password }) {
-    const normalizedEmail = email.trim().toLowerCase();
-    const normalizedUsername = username.trim().toLowerCase();
+  async register({ email, password }) {
+    const normalizedEmail = normalizeEmail(email);
 
-    const existingUser = await prisma.user.findFirst({
+    const existingUser = await prisma.user.findUnique({
       where: {
-        OR: [{ email: normalizedEmail }, { username: normalizedUsername }],
+        email: normalizedEmail,
       },
       select: {
-        email: true,
-        username: true,
+        id: true,
       },
     });
 
-    if (existingUser?.email === normalizedEmail) {
+    if (existingUser) {
       throw new ApiError(409, "Email is already in use");
     }
 
-    if (existingUser?.username === normalizedUsername) {
-      throw new ApiError(409, "Username is already in use");
-    }
-
     const passwordHash = await bcrypt.hash(password, env.AUTH_BCRYPT_SALT_ROUNDS);
+    const derivedName = createDisplayNameFromEmail(normalizedEmail);
 
     let user;
 
     try {
       user = await prisma.user.create({
         data: {
-          name: name.trim(),
-          username: normalizedUsername,
+          name: derivedName,
           email: normalizedEmail,
           passwordHash,
         },
       });
     } catch (error) {
       if (error?.code === "P2002") {
-        throw new ApiError(409, "Email or username is already in use");
+        throw new ApiError(409, "Email is already in use");
       }
       throw error;
     }
@@ -206,12 +211,12 @@ const authService = {
     };
   },
 
-  async login({ identifier, password }) {
-    const normalizedIdentifier = normalizeIdentity(identifier);
+  async login({ email, password }) {
+    const normalizedEmail = normalizeEmail(email);
 
-    const user = await prisma.user.findFirst({
+    const user = await prisma.user.findUnique({
       where: {
-        OR: [{ email: normalizedIdentifier }, { username: normalizedIdentifier }],
+        email: normalizedEmail,
       },
     });
 

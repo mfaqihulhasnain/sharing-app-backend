@@ -10,37 +10,31 @@ const usersSeed = [
   {
     id: "usr_you",
     name: "You",
-    username: "you",
     email: "you@sharing.local",
   },
   {
     id: "usr_ali",
     name: "Ali",
-    username: "ali",
     email: "ali@sharing.local",
   },
   {
     id: "usr_sara",
     name: "Sara",
-    username: "sara",
     email: "sara@sharing.local",
   },
   {
     id: "usr_maya",
     name: "Maya",
-    username: "maya",
     email: "maya@sharing.local",
   },
   {
     id: "usr_ahmed",
     name: "Ahmed",
-    username: "ahmed",
     email: "ahmed@sharing.local",
   },
   {
     id: "usr_noah",
     name: "Noah",
-    username: "noah",
     email: "noah@sharing.local",
   },
 ];
@@ -147,13 +141,12 @@ async function seedUsers() {
       data: {
         id: user.id,
         name: user.name,
-        username: user.username,
         email: user.email,
         passwordHash,
       },
     });
 
-    log(`Created user: ${user.name} (${user.username})`);
+    log(`Created user: ${user.name} (${user.email})`);
   }
 
   log(`Users seeded: ${usersSeed.length}`);
