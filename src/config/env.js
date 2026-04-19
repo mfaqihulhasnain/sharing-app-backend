@@ -33,7 +33,6 @@ const envSchema = z.object({
     z.string().min(1, "DATABASE_URL is required")
   ),
   DIRECT_URL: z.preprocess(emptyToUndefined, z.string().optional()),
-  AUTH_STRATEGY: z.preprocess(emptyToUndefined, z.string().optional()),
   AUTH_SECRET: z.preprocess(emptyToUndefined, z.string().min(32).optional()),
   AUTH_ACCESS_TOKEN_TTL: z.preprocess(emptyToUndefined, z.string().default("15m")),
   AUTH_REFRESH_TOKEN_TTL_DAYS: z.preprocess(
