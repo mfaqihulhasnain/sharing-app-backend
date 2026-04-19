@@ -12,42 +12,36 @@ const usersSeed = [
     name: "You",
     username: "you",
     email: "you@sharing.local",
-    role: "ADMIN",
   },
   {
     id: "usr_ali",
     name: "Ali",
     username: "ali",
     email: "ali@sharing.local",
-    role: "MEMBER",
   },
   {
     id: "usr_sara",
     name: "Sara",
     username: "sara",
     email: "sara@sharing.local",
-    role: "MEMBER",
   },
   {
     id: "usr_maya",
     name: "Maya",
     username: "maya",
     email: "maya@sharing.local",
-    role: "MEMBER",
   },
   {
     id: "usr_ahmed",
     name: "Ahmed",
     username: "ahmed",
     email: "ahmed@sharing.local",
-    role: "MEMBER",
   },
   {
     id: "usr_noah",
     name: "Noah",
     username: "noah",
     email: "noah@sharing.local",
-    role: "MEMBER",
   },
 ];
 
@@ -155,14 +149,11 @@ async function seedUsers() {
         name: user.name,
         username: user.username,
         email: user.email,
-        role: user.role,
         passwordHash,
       },
     });
 
-    log(
-      `Created user: ${user.name} (${user.username}) [${user.role}]`
-    );
+    log(`Created user: ${user.name} (${user.username})`);
   }
 
   log(`Users seeded: ${usersSeed.length}`);
