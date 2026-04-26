@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+const PASSWORD_POLICY_REGEX =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
+
 const register = z.object({
   body: z
     .object({
@@ -9,8 +12,8 @@ const register = z.object({
         .min(8)
         .max(72)
         .regex(
-          /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/,
-          "password must include uppercase, lowercase, and a number"
+          PASSWORD_POLICY_REGEX,
+          "password must include uppercase, lowercase, number, and special character"
         ),
     })
     .strict(),
@@ -20,7 +23,14 @@ const login = z.object({
   body: z
     .object({
       email: z.string().trim().toLowerCase().email().max(150),
-      password: z.string().min(8).max(72),
+      password: z
+        .string()
+        .min(8)
+        .max(72)
+        .regex(
+          PASSWORD_POLICY_REGEX,
+          "password must include uppercase, lowercase, number, and special character"
+        ),
     })
     .strict(),
 });
