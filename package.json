@@ -7,7 +7,9 @@
     "dev": "nodemon server.js",
     "start": "node server.js",
     "lint": "eslint src/",
-    "test": "jest",
+    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand",
+    "test:unit": "npm run test -- --selectProjects unit",
+    "test:integration": "npm run test -- --selectProjects integration",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
@@ -32,9 +34,11 @@
   },
   "devDependencies": {
     "eslint": "^10.2.0",
+    "jest": "^30.3.0",
     "nodemon": "^3.1.14",
     "prettier": "^3.8.2",
-    "prisma": "^6.15.0"
+    "prisma": "^6.15.0",
+    "supertest": "^7.2.2"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
