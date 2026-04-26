@@ -2,19 +2,25 @@ import { z } from "zod";
 
 const PASSWORD_POLICY_REGEX =
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).+$/;
+const MAX_BCRYPT_PASSWORD_BYTES = 72;
+
+const passwordField = z
+  .string()
+  .min(8)
+  .refine(
+    (password) => Buffer.byteLength(password, "utf8") <= MAX_BCRYPT_PASSWORD_BYTES,
+    { message: `password must be ${MAX_BCRYPT_PASSWORD_BYTES} bytes or fewer` }
+  )
+  .regex(
+    PASSWORD_POLICY_REGEX,
+    "password must include uppercase, lowercase, number, and special character"
+  );
 
 const register = z.object({
   body: z
     .object({
       email: z.string().trim().toLowerCase().email().max(150),
-      password: z
-        .string()
-        .min(8)
-        .max(72)
-        .regex(
-          PASSWORD_POLICY_REGEX,
-          "password must include uppercase, lowercase, number, and special character"
-        ),
+      password: passwordField,
     })
     .strict(),
 });
@@ -23,14 +29,7 @@ const login = z.object({
   body: z
     .object({
       email: z.string().trim().toLowerCase().email().max(150),
-      password: z
-        .string()
-        .min(8)
-        .max(72)
-        .regex(
-          PASSWORD_POLICY_REGEX,
-          "password must include uppercase, lowercase, number, and special character"
-        ),
+      password: passwordField,
     })
     .strict(),
 });
