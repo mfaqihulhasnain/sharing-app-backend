@@ -42,6 +42,15 @@ const toAuthResponseData = (result) => ({
 const extractRefreshToken = (req) =>
   req.body?.refreshToken || getCookie(req, env.AUTH_REFRESH_COOKIE_NAME);
 
+const extractAccessToken = (req) => {
+  const authorizationHeader = req.headers.authorization;
+  if (authorizationHeader?.startsWith("Bearer ")) {
+    return authorizationHeader.slice("Bearer ".length).trim();
+  }
+
+  return getCookie(req, "accessToken");
+};
+
 // Purpose: host auth request handlers and delegate work to the auth service.
 const authController = {
   register: asyncHandler(async (req, res) => {
@@ -74,10 +83,12 @@ const authController = {
 
   logout: asyncHandler(async (req, res) => {
     const refreshToken = extractRefreshToken(req);
+    const accessToken = extractAccessToken(req);
     await authService.logout({
       userId: req.auth?.userId,
       sessionId: req.auth?.sessionId,
       refreshToken,
+      accessToken,
     });
 
     clearRefreshCookie(res);

@@ -19,14 +19,6 @@ const toPublicUser = (user) => ({
 
 const hashToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
 
-const hashesMatch = (leftHash, rightHash) => {
-  if (!leftHash || !rightHash) return false;
-  const leftBuffer = Buffer.from(leftHash, "utf8");
-  const rightBuffer = Buffer.from(rightHash, "utf8");
-  if (leftBuffer.length !== rightBuffer.length) return false;
-  return crypto.timingSafeEqual(leftBuffer, rightBuffer);
-};
-
 const getRefreshExpiresAt = () =>
   new Date(Date.now() + env.AUTH_REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
 
@@ -49,12 +41,31 @@ const signRefreshToken = ({ userId, sessionId }) =>
       uid: userId,
       sid: sessionId,
       typ: REFRESH_TOKEN_TYPE,
+      jti: crypto.randomUUID(),
     },
     env.AUTH_SECRET,
     {
       expiresIn: `${env.AUTH_REFRESH_TOKEN_TTL_DAYS}d`,
     }
   );
+
+const verifyAccessToken = (accessToken) => {
+  try {
+    const payload = jwt.verify(accessToken, env.AUTH_SECRET);
+    if (
+      payload?.typ !== ACCESS_TOKEN_TYPE ||
+      !Number.isInteger(payload.uid) ||
+      !Number.isInteger(payload.sid)
+    ) {
+      throw new ApiError(401, "Invalid access token payload");
+    }
+
+    return payload;
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(401, "Invalid or expired access token");
+  }
+};
 
 const verifyRefreshToken = (refreshToken) => {
   try {
@@ -114,14 +125,24 @@ const issueSessionTokens = async ({ userId }) =>
     };
   });
 
-const rotateSessionTokens = async ({ userId, sessionId }) => {
+const rotateSessionTokens = async ({ userId, sessionId, currentRefreshTokenHash }) => {
   const refreshExpiresAt = getRefreshExpiresAt();
   const refreshToken = signRefreshToken({ userId, sessionId });
   const refreshTokenHash = hashToken(refreshToken);
 
-  await prisma.session.update({
+  const updateResult = await prisma.session.updateMany({
     where: {
       id: sessionId,
+      userId,
+      revokedAt: null,
+      expiresAt: {
+        gt: new Date(),
+      },
+      ...(currentRefreshTokenHash
+        ? {
+            refreshTokenHash: currentRefreshTokenHash,
+          }
+        : {}),
     },
     data: {
       refreshTokenHash,
@@ -129,6 +150,10 @@ const rotateSessionTokens = async ({ userId, sessionId }) => {
       revokedAt: null,
     },
   });
+
+  if (updateResult.count === 0) {
+    throw new ApiError(401, "Refresh token does not match active session");
+  }
 
   const accessToken = signAccessToken({
     userId,
@@ -259,13 +284,11 @@ const authService = {
     }
 
     const refreshTokenHash = hashToken(refreshToken);
-    if (!hashesMatch(session.refreshTokenHash, refreshTokenHash)) {
-      throw new ApiError(401, "Refresh token does not match active session");
-    }
 
     const tokens = await rotateSessionTokens({
       userId: session.userId,
       sessionId: session.id,
+      currentRefreshTokenHash: refreshTokenHash,
     });
 
     return {
@@ -274,13 +297,25 @@ const authService = {
     };
   },
 
-  async logout({ userId, sessionId, refreshToken }) {
+  async logout({ userId, sessionId, refreshToken, accessToken }) {
     let targetSessionId = sessionId;
+    let targetUserId = userId;
+
+    if ((!targetSessionId || !targetUserId) && accessToken) {
+      try {
+        const payload = verifyAccessToken(accessToken);
+        targetSessionId = targetSessionId ?? payload.sid;
+        targetUserId = targetUserId ?? payload.uid;
+      } catch (_error) {
+        // Ignore invalid/expired access tokens for logout and fallback to refresh-token path.
+      }
+    }
 
     if (!targetSessionId && refreshToken) {
       try {
         const payload = verifyRefreshToken(refreshToken);
         targetSessionId = payload.sid;
+        targetUserId = targetUserId ?? payload.uid;
       } catch (_error) {
         targetSessionId = undefined;
       }
@@ -295,8 +330,8 @@ const authService = {
       revokedAt: null,
     };
 
-    if (userId) {
-      where.userId = userId;
+    if (targetUserId) {
+      where.userId = targetUserId;
     }
 
     const result = await prisma.session.updateMany({
