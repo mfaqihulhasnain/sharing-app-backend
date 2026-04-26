@@ -6,6 +6,10 @@ const errorHandler = (error, _req, res, _next) => {
     message: error.message || "Internal Server Error",
   };
 
+  if (error.code) {
+    response.code = error.code;
+  }
+
   if (error.details) {
     response.details = error.details;
   }

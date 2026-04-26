@@ -32,6 +32,7 @@ const resetDatabase = async () => {
     prisma.shareFile.deleteMany({}),
     prisma.shareRecipient.deleteMany({}),
     prisma.share.deleteMany({}),
+    prisma.emailVerificationToken.deleteMany({}),
     prisma.session.deleteMany({}),
     prisma.user.deleteMany({}),
   ]);
@@ -47,4 +48,3 @@ const shutdownTestDatabase = async () => {
 };
 
 export { initializeTestDatabase, resetDatabase, shutdownTestDatabase, prisma };
-

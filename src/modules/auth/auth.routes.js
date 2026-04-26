@@ -8,6 +8,12 @@ import authGuard from "../../middleware/authGuard.js";
 const router = express.Router();
 
 router.post("/register", validate(authValidation.register), authController.register);
+router.post("/verify-email", validate(authValidation.verifyEmail), authController.verifyEmail);
+router.post(
+  "/resend-verification",
+  validate(authValidation.resendVerification),
+  authController.resendVerification
+);
 router.post("/login", validate(authValidation.login), authController.login);
 router.post("/refresh", validate(authValidation.refreshSession), authController.refreshSession);
 router.post("/logout", validate(authValidation.logout), authController.logout);

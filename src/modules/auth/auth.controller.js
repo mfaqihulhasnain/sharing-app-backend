@@ -55,11 +55,35 @@ const extractAccessToken = (req) => {
 const authController = {
   register: asyncHandler(async (req, res) => {
     const result = await authService.register(req.body);
-    setRefreshCookie(res, result.refreshToken);
+    res.status(201).json(
+      new ApiResponse("Account created. Please verify your email to continue.", {
+        user: result.user,
+        emailVerificationRequired: true,
+        verificationEmailSent: result.verificationEmailSent,
+        verificationExpiresAt: result.verificationExpiresAt,
+      })
+    );
+  }),
 
-    res
-      .status(201)
-      .json(new ApiResponse("Account created successfully", toAuthResponseData(result)));
+  verifyEmail: asyncHandler(async (req, res) => {
+    const result = await authService.verifyEmail(req.body);
+
+    res.status(200).json(
+      new ApiResponse("Email verified successfully. You can now log in.", {
+        user: result.user,
+      })
+    );
+  }),
+
+  resendVerification: asyncHandler(async (req, res) => {
+    const result = await authService.resendVerification(req.body);
+
+    res.status(200).json(
+      new ApiResponse("If this email exists and is unverified, a new link has been sent.", {
+        verificationEmailSent: result.verificationEmailSent,
+        verificationExpiresAt: result.verificationExpiresAt,
+      })
+    );
   }),
 
   login: asyncHandler(async (req, res) => {

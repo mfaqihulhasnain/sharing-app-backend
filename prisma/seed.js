@@ -104,18 +104,26 @@ const log = (message) => {
 
 async function clearExistingData() {
   log("Clearing existing data...");
-  const [deletedFiles, deletedRecipients, deletedShares, deletedSessions, deletedUsers] =
-    await prisma.$transaction([
-      prisma.shareFile.deleteMany({}),
-      prisma.shareRecipient.deleteMany({}),
-      prisma.share.deleteMany({}),
-      prisma.session.deleteMany({}),
-      prisma.user.deleteMany({}),
-    ]);
+  const [
+    deletedFiles,
+    deletedRecipients,
+    deletedShares,
+    deletedVerificationTokens,
+    deletedSessions,
+    deletedUsers,
+  ] = await prisma.$transaction([
+    prisma.shareFile.deleteMany({}),
+    prisma.shareRecipient.deleteMany({}),
+    prisma.share.deleteMany({}),
+    prisma.emailVerificationToken.deleteMany({}),
+    prisma.session.deleteMany({}),
+    prisma.user.deleteMany({}),
+  ]);
 
   log(`Deleted share files: ${deletedFiles.count}`);
   log(`Deleted share recipients: ${deletedRecipients.count}`);
   log(`Deleted shares: ${deletedShares.count}`);
+  log(`Deleted verification tokens: ${deletedVerificationTokens.count}`);
   log(`Deleted sessions: ${deletedSessions.count}`);
   log(`Deleted users: ${deletedUsers.count}`);
 }
@@ -131,6 +139,7 @@ async function seedUsers() {
         name: user.name,
         email: user.email,
         passwordHash,
+        emailVerifiedAt: new Date(),
       },
       select: {
         id: true,

@@ -2,16 +2,19 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import prisma from "../../lib/prisma.js";
+import { sendVerificationEmail } from "../../lib/mailer.js";
 import { env } from "../../config/index.js";
 import ApiError from "../../utils/ApiError.js";
 
 const ACCESS_TOKEN_TYPE = "access";
 const REFRESH_TOKEN_TYPE = "refresh";
+const EMAIL_VERIFICATION_TOKEN_BYTES = 32;
 
 const toPublicUser = (user) => ({
   id: user.id,
   name: user.name,
   email: user.email,
+  emailVerifiedAt: user.emailVerifiedAt,
   isActive: user.isActive,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
@@ -21,6 +24,8 @@ const hashToken = (token) => crypto.createHash("sha256").update(token).digest("h
 
 const getRefreshExpiresAt = () =>
   new Date(Date.now() + env.AUTH_REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
+const getVerificationTokenExpiresAt = () =>
+  new Date(Date.now() + env.AUTH_EMAIL_VERIFICATION_TOKEN_TTL_MINUTES * 60 * 1000);
 
 const signAccessToken = ({ userId, sessionId }) =>
   jwt.sign(
@@ -177,6 +182,55 @@ const findActiveUserById = (userId) =>
   });
 
 const normalizeEmail = (email) => email.trim().toLowerCase();
+const getVerificationLink = (token) => {
+  const separator = env.AUTH_EMAIL_VERIFICATION_URL.includes("?") ? "&" : "?";
+  return `${env.AUTH_EMAIL_VERIFICATION_URL}${separator}token=${encodeURIComponent(token)}`;
+};
+const createEmailVerificationToken = async ({ userId }) => {
+  const token = crypto.randomBytes(EMAIL_VERIFICATION_TOKEN_BYTES).toString("hex");
+  const tokenHash = hashToken(token);
+  const expiresAt = getVerificationTokenExpiresAt();
+  const now = new Date();
+
+  await prisma.$transaction([
+    prisma.emailVerificationToken.updateMany({
+      where: {
+        userId,
+        usedAt: null,
+        expiresAt: {
+          gt: now,
+        },
+      },
+      data: {
+        usedAt: now,
+      },
+    }),
+    prisma.emailVerificationToken.create({
+      data: {
+        userId,
+        tokenHash,
+        expiresAt,
+      },
+    }),
+  ]);
+
+  return {
+    token,
+    expiresAt,
+  };
+};
+
+const sendAccountVerificationEmail = async ({ user, token, expiresAt }) => {
+  const verificationUrl = getVerificationLink(token);
+
+  await sendVerificationEmail({
+    to: user.email,
+    name: user.name,
+    verificationUrl,
+    expiresAt,
+  });
+};
+
 const createDisplayNameFromEmail = (email) => {
   const localPart = email.split("@")[0] || "User";
   const cleaned = localPart.replace(/[^a-zA-Z0-9]+/g, " ").trim();
@@ -219,6 +273,7 @@ const authService = {
           name: derivedName,
           email: normalizedEmail,
           passwordHash,
+          emailVerifiedAt: null,
         },
       });
     } catch (error) {
@@ -228,11 +283,28 @@ const authService = {
       throw error;
     }
 
-    const tokens = await issueSessionTokens({ userId: user.id });
+    const { token, expiresAt } = await createEmailVerificationToken({
+      userId: user.id,
+    });
+
+    let verificationEmailSent = true;
+
+    try {
+      await sendAccountVerificationEmail({
+        user,
+        token,
+        expiresAt,
+      });
+    } catch (error) {
+      verificationEmailSent = false;
+      // eslint-disable-next-line no-console
+      console.error("[auth.register] Failed to send verification email:", error);
+    }
 
     return {
       user: toPublicUser(user),
-      ...tokens,
+      verificationEmailSent,
+      verificationExpiresAt: expiresAt,
     };
   },
 
@@ -248,6 +320,13 @@ const authService = {
     if (!user || !user.isActive) {
       throw new ApiError(401, "Invalid credentials");
     }
+    if (!user.emailVerifiedAt) {
+      throw new ApiError(
+        403,
+        "Email is not verified. Please verify your email before logging in.",
+        "EMAIL_NOT_VERIFIED"
+      );
+    }
 
     const passwordMatches = await bcrypt.compare(password, user.passwordHash);
     if (!passwordMatches) {
@@ -259,6 +338,139 @@ const authService = {
     return {
       user: toPublicUser(user),
       ...tokens,
+    };
+  },
+
+  async verifyEmail({ token }) {
+    const tokenHash = hashToken(token);
+    const now = new Date();
+
+    const verificationToken = await prisma.emailVerificationToken.findUnique({
+      where: {
+        tokenHash,
+      },
+      include: {
+        user: true,
+      },
+    });
+
+    if (!verificationToken || verificationToken.expiresAt <= now || verificationToken.usedAt) {
+      throw new ApiError(400, "Invalid or expired verification token");
+    }
+
+    if (!verificationToken.user?.isActive) {
+      throw new ApiError(400, "User is inactive");
+    }
+
+    const user = await prisma.$transaction(async (transactionClient) => {
+      const consumeResult = await transactionClient.emailVerificationToken.updateMany({
+        where: {
+          id: verificationToken.id,
+          usedAt: null,
+          expiresAt: {
+            gt: now,
+          },
+        },
+        data: {
+          usedAt: now,
+        },
+      });
+
+      if (consumeResult.count === 0) {
+        throw new ApiError(400, "Invalid or expired verification token");
+      }
+
+      await transactionClient.emailVerificationToken.updateMany({
+        where: {
+          userId: verificationToken.userId,
+          id: {
+            not: verificationToken.id,
+          },
+          usedAt: null,
+        },
+        data: {
+          usedAt: now,
+        },
+      });
+
+      return transactionClient.user.update({
+        where: {
+          id: verificationToken.userId,
+        },
+        data: {
+          emailVerifiedAt: verificationToken.user.emailVerifiedAt || now,
+        },
+      });
+    });
+
+    return {
+      user: toPublicUser(user),
+    };
+  },
+
+  async resendVerification({ email }) {
+    const normalizedEmail = normalizeEmail(email);
+
+    const user = await prisma.user.findUnique({
+      where: {
+        email: normalizedEmail,
+      },
+    });
+
+    if (!user || !user.isActive || user.emailVerifiedAt) {
+      return {
+        verificationEmailSent: false,
+        verificationExpiresAt: null,
+      };
+    }
+
+    const latestOpenToken = await prisma.emailVerificationToken.findFirst({
+      where: {
+        userId: user.id,
+        usedAt: null,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      select: {
+        createdAt: true,
+      },
+    });
+
+    if (latestOpenToken) {
+      const ageSeconds = Math.floor((Date.now() - latestOpenToken.createdAt.getTime()) / 1000);
+      const remainingCooldown = env.AUTH_RESEND_VERIFICATION_COOLDOWN_SECONDS - ageSeconds;
+
+      if (remainingCooldown > 0) {
+        throw new ApiError(
+          429,
+          `Please wait ${remainingCooldown} seconds before requesting another verification email.`,
+          "VERIFICATION_RESEND_RATE_LIMITED"
+        );
+      }
+    }
+
+    const { token, expiresAt } = await createEmailVerificationToken({
+      userId: user.id,
+    });
+
+    let verificationEmailSent = true;
+
+    try {
+      await sendAccountVerificationEmail({
+        user,
+        token,
+        expiresAt,
+      });
+    } catch (error) {
+      verificationEmailSent = false;
+      // eslint-disable-next-line no-console
+      console.error("[auth.resendVerification] Failed to send verification email:", error);
+    }
+
+    return {
+      verificationEmailSent,
+      verificationExpiresAt: expiresAt,
     };
   },
 

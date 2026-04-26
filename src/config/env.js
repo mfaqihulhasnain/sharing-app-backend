@@ -20,6 +20,15 @@ const booleanFromString = (value) => {
   return value;
 };
 
+const getPrimaryOrigin = (value) => {
+  if (!value) return undefined;
+
+  return value
+    .split(",")
+    .map((origin) => origin.trim())
+    .find(Boolean);
+};
+
 // Purpose: validate and centralize runtime environment values.
 const envSchema = z.object({
   NODE_ENV: z.preprocess(
@@ -39,6 +48,15 @@ const envSchema = z.object({
     emptyToUndefined,
     z.coerce.number().int().positive().max(365).default(30)
   ),
+  AUTH_EMAIL_VERIFICATION_TOKEN_TTL_MINUTES: z.preprocess(
+    emptyToUndefined,
+    z.coerce.number().int().positive().max(1440).default(30)
+  ),
+  AUTH_RESEND_VERIFICATION_COOLDOWN_SECONDS: z.preprocess(
+    emptyToUndefined,
+    z.coerce.number().int().positive().max(3600).default(60)
+  ),
+  AUTH_EMAIL_VERIFICATION_URL: z.preprocess(emptyToUndefined, z.string().url().optional()),
   AUTH_REFRESH_COOKIE_NAME: z.preprocess(
     emptyToUndefined,
     z.string().min(1).default("refreshToken")
@@ -60,6 +78,15 @@ const envSchema = z.object({
     emptyToUndefined,
     z.coerce.number().int().min(8).max(15).default(10)
   ),
+  MAIL_HOST: z.preprocess(emptyToUndefined, z.string().optional()),
+  MAIL_PORT: z.preprocess(emptyToUndefined, z.coerce.number().int().positive().default(2525)),
+  MAIL_USER: z.preprocess(emptyToUndefined, z.string().optional()),
+  MAIL_PASS: z.preprocess(emptyToUndefined, z.string().optional()),
+  MAIL_FROM: z.preprocess(emptyToUndefined, z.string().optional()),
+  MAIL_SECURE: z.preprocess(
+    (value) => booleanFromString(emptyToUndefined(value)),
+    z.boolean().optional()
+  ),
 });
 
 const parsedEnv = envSchema.parse(process.env);
@@ -67,6 +94,8 @@ const defaultDevAuthSecret = "dev-only-auth-secret-change-before-production-1234
 const authSecret =
   parsedEnv.AUTH_SECRET ||
   (parsedEnv.NODE_ENV === "production" ? undefined : defaultDevAuthSecret);
+const primaryClientOrigin = getPrimaryOrigin(parsedEnv.CLIENT_ORIGIN);
+const defaultEmailVerificationUrl = `${primaryClientOrigin || "http://localhost:3000"}/verify-email`;
 
 if (!authSecret) {
   throw new Error("AUTH_SECRET is required in production");
@@ -75,8 +104,11 @@ if (!authSecret) {
 const env = {
   ...parsedEnv,
   AUTH_SECRET: authSecret,
+  AUTH_EMAIL_VERIFICATION_URL:
+    parsedEnv.AUTH_EMAIL_VERIFICATION_URL || defaultEmailVerificationUrl,
   AUTH_COOKIE_SECURE:
     parsedEnv.AUTH_COOKIE_SECURE ?? parsedEnv.NODE_ENV === "production",
+  MAIL_SECURE: parsedEnv.MAIL_SECURE ?? false,
 };
 
 export { env };

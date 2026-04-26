@@ -50,12 +50,30 @@ const logout = z.object({
     .optional(),
 });
 
+const verifyEmail = z.object({
+  body: z
+    .object({
+      token: z.string().trim().min(1),
+    })
+    .strict(),
+});
+
+const resendVerification = z.object({
+  body: z
+    .object({
+      email: z.string().trim().toLowerCase().email().max(150),
+    })
+    .strict(),
+});
+
 // Purpose: store auth request schemas close to the module boundary.
 const authValidation = {
   register,
   login,
   refreshSession,
   logout,
+  verifyEmail,
+  resendVerification,
 };
 
 export default authValidation;
