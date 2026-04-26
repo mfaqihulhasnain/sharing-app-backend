@@ -14,6 +14,16 @@ router.post(
   validate(authValidation.resendVerification),
   authController.resendVerification
 );
+router.post(
+  "/forgot-password",
+  validate(authValidation.forgotPassword),
+  authController.forgotPassword
+);
+router.post(
+  "/reset-password",
+  validate(authValidation.resetPassword),
+  authController.resetPassword
+);
 router.post("/login", validate(authValidation.login), authController.login);
 router.post("/refresh", validate(authValidation.refreshSession), authController.refreshSession);
 router.post("/logout", validate(authValidation.logout), authController.logout);

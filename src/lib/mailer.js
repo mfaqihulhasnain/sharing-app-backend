@@ -66,4 +66,35 @@ const sendVerificationEmail = async ({ to, name, verificationUrl, expiresAt }) =
   });
 };
 
-export { sendVerificationEmail };
+const sendPasswordResetEmail = async ({ to, name, resetUrl, expiresAt }) => {
+  const expiresLabel = expiresAt.toUTCString();
+  const safeName = name || "there";
+  const subject = "Reset your Sharing Board password";
+  const text = [
+    `Hi ${safeName},`,
+    "",
+    "We received a request to reset your Sharing Board password.",
+    `Reset link: ${resetUrl}`,
+    `This link expires at ${expiresLabel}.`,
+    "",
+    "If you did not request this reset, you can ignore this email.",
+  ].join("\n");
+  const html = `
+    <p>Hi ${safeName},</p>
+    <p>We received a request to reset your Sharing Board password.</p>
+    <p><a href="${resetUrl}">Reset password</a></p>
+    <p>This link expires at <strong>${expiresLabel}</strong>.</p>
+    <p>If you did not request this reset, you can ignore this email.</p>
+  `;
+
+  const mailTransporter = getTransporter();
+  await mailTransporter.sendMail({
+    from: getFromAddress(),
+    to,
+    subject,
+    text,
+    html,
+  });
+};
+
+export { sendVerificationEmail, sendPasswordResetEmail };

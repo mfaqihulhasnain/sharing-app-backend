@@ -33,6 +33,7 @@ const resetDatabase = async () => {
     prisma.shareRecipient.deleteMany({}),
     prisma.share.deleteMany({}),
     prisma.emailVerificationToken.deleteMany({}),
+    prisma.passwordResetToken.deleteMany({}),
     prisma.session.deleteMany({}),
     prisma.user.deleteMany({}),
   ]);

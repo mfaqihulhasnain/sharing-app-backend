@@ -52,11 +52,20 @@ const envSchema = z.object({
     emptyToUndefined,
     z.coerce.number().int().positive().max(1440).default(30)
   ),
+  AUTH_PASSWORD_RESET_TOKEN_TTL_MINUTES: z.preprocess(
+    emptyToUndefined,
+    z.coerce.number().int().positive().max(1440).default(30)
+  ),
   AUTH_RESEND_VERIFICATION_COOLDOWN_SECONDS: z.preprocess(
     emptyToUndefined,
     z.coerce.number().int().positive().max(3600).default(60)
   ),
+  AUTH_PASSWORD_RESET_COOLDOWN_SECONDS: z.preprocess(
+    emptyToUndefined,
+    z.coerce.number().int().positive().max(3600).default(60)
+  ),
   AUTH_EMAIL_VERIFICATION_URL: z.preprocess(emptyToUndefined, z.string().url().optional()),
+  AUTH_PASSWORD_RESET_URL: z.preprocess(emptyToUndefined, z.string().url().optional()),
   AUTH_REFRESH_COOKIE_NAME: z.preprocess(
     emptyToUndefined,
     z.string().min(1).default("refreshToken")
@@ -96,6 +105,7 @@ const authSecret =
   (parsedEnv.NODE_ENV === "production" ? undefined : defaultDevAuthSecret);
 const primaryClientOrigin = getPrimaryOrigin(parsedEnv.CLIENT_ORIGIN);
 const defaultEmailVerificationUrl = `${primaryClientOrigin || "http://localhost:3000"}/verify-email`;
+const defaultPasswordResetUrl = `${primaryClientOrigin || "http://localhost:3000"}/reset-password`;
 
 if (!authSecret) {
   throw new Error("AUTH_SECRET is required in production");
@@ -106,6 +116,8 @@ const env = {
   AUTH_SECRET: authSecret,
   AUTH_EMAIL_VERIFICATION_URL:
     parsedEnv.AUTH_EMAIL_VERIFICATION_URL || defaultEmailVerificationUrl,
+  AUTH_PASSWORD_RESET_URL:
+    parsedEnv.AUTH_PASSWORD_RESET_URL || defaultPasswordResetUrl,
   AUTH_COOKIE_SECURE:
     parsedEnv.AUTH_COOKIE_SECURE ?? parsedEnv.NODE_ENV === "production",
   MAIL_SECURE: parsedEnv.MAIL_SECURE ?? false,

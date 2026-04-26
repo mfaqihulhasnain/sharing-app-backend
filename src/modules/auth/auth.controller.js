@@ -86,6 +86,24 @@ const authController = {
     );
   }),
 
+  forgotPassword: asyncHandler(async (req, res) => {
+    await authService.forgotPassword(req.body);
+
+    res
+      .status(200)
+      .json(new ApiResponse("If an account with that email exists, a reset link has been sent."));
+  }),
+
+  resetPassword: asyncHandler(async (req, res) => {
+    await authService.resetPassword(req.body);
+
+    clearRefreshCookie(res);
+
+    res
+      .status(200)
+      .json(new ApiResponse("Password has been reset successfully. Please log in again."));
+  }),
+
   login: asyncHandler(async (req, res) => {
     const result = await authService.login(req.body);
     setRefreshCookie(res, result.refreshToken);

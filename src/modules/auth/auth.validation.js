@@ -66,6 +66,23 @@ const resendVerification = z.object({
     .strict(),
 });
 
+const forgotPassword = z.object({
+  body: z
+    .object({
+      email: z.string().trim().toLowerCase().email().max(150),
+    })
+    .strict(),
+});
+
+const resetPassword = z.object({
+  body: z
+    .object({
+      token: z.string().trim().min(1),
+      password: passwordField,
+    })
+    .strict(),
+});
+
 // Purpose: store auth request schemas close to the module boundary.
 const authValidation = {
   register,
@@ -74,6 +91,8 @@ const authValidation = {
   logout,
   verifyEmail,
   resendVerification,
+  forgotPassword,
+  resetPassword,
 };
 
 export default authValidation;

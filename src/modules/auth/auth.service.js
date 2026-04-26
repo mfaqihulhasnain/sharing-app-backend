@@ -2,13 +2,14 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import prisma from "../../lib/prisma.js";
-import { sendVerificationEmail } from "../../lib/mailer.js";
+import { sendPasswordResetEmail, sendVerificationEmail } from "../../lib/mailer.js";
 import { env } from "../../config/index.js";
 import ApiError from "../../utils/ApiError.js";
 
 const ACCESS_TOKEN_TYPE = "access";
 const REFRESH_TOKEN_TYPE = "refresh";
 const EMAIL_VERIFICATION_TOKEN_BYTES = 32;
+const PASSWORD_RESET_TOKEN_BYTES = 32;
 
 const toPublicUser = (user) => ({
   id: user.id,
@@ -26,6 +27,8 @@ const getRefreshExpiresAt = () =>
   new Date(Date.now() + env.AUTH_REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
 const getVerificationTokenExpiresAt = () =>
   new Date(Date.now() + env.AUTH_EMAIL_VERIFICATION_TOKEN_TTL_MINUTES * 60 * 1000);
+const getPasswordResetTokenExpiresAt = () =>
+  new Date(Date.now() + env.AUTH_PASSWORD_RESET_TOKEN_TTL_MINUTES * 60 * 1000);
 
 const signAccessToken = ({ userId, sessionId }) =>
   jwt.sign(
@@ -186,6 +189,10 @@ const getVerificationLink = (token) => {
   const separator = env.AUTH_EMAIL_VERIFICATION_URL.includes("?") ? "&" : "?";
   return `${env.AUTH_EMAIL_VERIFICATION_URL}${separator}token=${encodeURIComponent(token)}`;
 };
+const getPasswordResetLink = (token) => {
+  const separator = env.AUTH_PASSWORD_RESET_URL.includes("?") ? "&" : "?";
+  return `${env.AUTH_PASSWORD_RESET_URL}${separator}token=${encodeURIComponent(token)}`;
+};
 const createEmailVerificationToken = async ({ userId }) => {
   const token = crypto.randomBytes(EMAIL_VERIFICATION_TOKEN_BYTES).toString("hex");
   const tokenHash = hashToken(token);
@@ -220,6 +227,40 @@ const createEmailVerificationToken = async ({ userId }) => {
   };
 };
 
+const createPasswordResetToken = async ({ userId }) => {
+  const token = crypto.randomBytes(PASSWORD_RESET_TOKEN_BYTES).toString("hex");
+  const tokenHash = hashToken(token);
+  const expiresAt = getPasswordResetTokenExpiresAt();
+  const now = new Date();
+
+  await prisma.$transaction([
+    prisma.passwordResetToken.updateMany({
+      where: {
+        userId,
+        usedAt: null,
+        expiresAt: {
+          gt: now,
+        },
+      },
+      data: {
+        usedAt: now,
+      },
+    }),
+    prisma.passwordResetToken.create({
+      data: {
+        userId,
+        tokenHash,
+        expiresAt,
+      },
+    }),
+  ]);
+
+  return {
+    token,
+    expiresAt,
+  };
+};
+
 const sendAccountVerificationEmail = async ({ user, token, expiresAt }) => {
   const verificationUrl = getVerificationLink(token);
 
@@ -227,6 +268,17 @@ const sendAccountVerificationEmail = async ({ user, token, expiresAt }) => {
     to: user.email,
     name: user.name,
     verificationUrl,
+    expiresAt,
+  });
+};
+
+const sendPasswordResetRequestEmail = async ({ user, token, expiresAt }) => {
+  const resetUrl = getPasswordResetLink(token);
+
+  await sendPasswordResetEmail({
+    to: user.email,
+    name: user.name,
+    resetUrl,
     expiresAt,
   });
 };
@@ -472,6 +524,148 @@ const authService = {
       verificationEmailSent,
       verificationExpiresAt: expiresAt,
     };
+  },
+
+  async forgotPassword({ email }) {
+    const normalizedEmail = normalizeEmail(email);
+
+    const user = await prisma.user.findUnique({
+      where: {
+        email: normalizedEmail,
+      },
+    });
+
+    if (!user || !user.isActive || !user.emailVerifiedAt) {
+      return {
+        passwordResetEmailSent: false,
+        passwordResetExpiresAt: null,
+      };
+    }
+
+    const latestOpenToken = await prisma.passwordResetToken.findFirst({
+      where: {
+        userId: user.id,
+        usedAt: null,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      select: {
+        createdAt: true,
+      },
+    });
+
+    if (latestOpenToken) {
+      const ageSeconds = Math.floor((Date.now() - latestOpenToken.createdAt.getTime()) / 1000);
+      const remainingCooldown = env.AUTH_PASSWORD_RESET_COOLDOWN_SECONDS - ageSeconds;
+
+      if (remainingCooldown > 0) {
+        return {
+          passwordResetEmailSent: false,
+          passwordResetExpiresAt: null,
+        };
+      }
+    }
+
+    const { token, expiresAt } = await createPasswordResetToken({
+      userId: user.id,
+    });
+
+    let passwordResetEmailSent = true;
+
+    try {
+      await sendPasswordResetRequestEmail({
+        user,
+        token,
+        expiresAt,
+      });
+    } catch (error) {
+      passwordResetEmailSent = false;
+      // eslint-disable-next-line no-console
+      console.error("[auth.forgotPassword] Failed to send password reset email:", error);
+    }
+
+    return {
+      passwordResetEmailSent,
+      passwordResetExpiresAt: expiresAt,
+    };
+  },
+
+  async resetPassword({ token, password }) {
+    const tokenHash = hashToken(token);
+    const now = new Date();
+
+    const passwordResetToken = await prisma.passwordResetToken.findUnique({
+      where: {
+        tokenHash,
+      },
+      include: {
+        user: true,
+      },
+    });
+
+    if (!passwordResetToken || passwordResetToken.expiresAt <= now || passwordResetToken.usedAt) {
+      throw new ApiError(400, "Invalid or expired password reset token");
+    }
+
+    if (!passwordResetToken.user?.isActive) {
+      throw new ApiError(400, "User is inactive");
+    }
+
+    const passwordHash = await bcrypt.hash(password, env.AUTH_BCRYPT_SALT_ROUNDS);
+
+    await prisma.$transaction(async (transactionClient) => {
+      const consumeResult = await transactionClient.passwordResetToken.updateMany({
+        where: {
+          id: passwordResetToken.id,
+          usedAt: null,
+          expiresAt: {
+            gt: now,
+          },
+        },
+        data: {
+          usedAt: now,
+        },
+      });
+
+      if (consumeResult.count === 0) {
+        throw new ApiError(400, "Invalid or expired password reset token");
+      }
+
+      await transactionClient.passwordResetToken.updateMany({
+        where: {
+          userId: passwordResetToken.userId,
+          id: {
+            not: passwordResetToken.id,
+          },
+          usedAt: null,
+        },
+        data: {
+          usedAt: now,
+        },
+      });
+
+      await transactionClient.user.update({
+        where: {
+          id: passwordResetToken.userId,
+        },
+        data: {
+          passwordHash,
+        },
+      });
+
+      await transactionClient.session.updateMany({
+        where: {
+          userId: passwordResetToken.userId,
+          revokedAt: null,
+        },
+        data: {
+          revokedAt: now,
+        },
+      });
+    });
+
+    return { passwordReset: true };
   },
 
   async refreshSession({ refreshToken }) {

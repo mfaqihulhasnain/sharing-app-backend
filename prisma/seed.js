@@ -109,6 +109,7 @@ async function clearExistingData() {
     deletedRecipients,
     deletedShares,
     deletedVerificationTokens,
+    deletedPasswordResetTokens,
     deletedSessions,
     deletedUsers,
   ] = await prisma.$transaction([
@@ -116,6 +117,7 @@ async function clearExistingData() {
     prisma.shareRecipient.deleteMany({}),
     prisma.share.deleteMany({}),
     prisma.emailVerificationToken.deleteMany({}),
+    prisma.passwordResetToken.deleteMany({}),
     prisma.session.deleteMany({}),
     prisma.user.deleteMany({}),
   ]);
@@ -124,6 +126,7 @@ async function clearExistingData() {
   log(`Deleted share recipients: ${deletedRecipients.count}`);
   log(`Deleted shares: ${deletedShares.count}`);
   log(`Deleted verification tokens: ${deletedVerificationTokens.count}`);
+  log(`Deleted password reset tokens: ${deletedPasswordResetTokens.count}`);
   log(`Deleted sessions: ${deletedSessions.count}`);
   log(`Deleted users: ${deletedUsers.count}`);
 }

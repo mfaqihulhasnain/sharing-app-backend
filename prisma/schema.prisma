@@ -22,9 +22,25 @@ model User {
   shareRecipients ShareRecipient[]
   sessions        Session[]
   emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens PasswordResetToken[]
 
   @@index([name])
   @@index([isActive, createdAt])
+}
+
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+  @@index([userId, usedAt, expiresAt])
 }
 
 model EmailVerificationToken {
