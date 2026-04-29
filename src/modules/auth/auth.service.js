@@ -372,17 +372,18 @@ const authService = {
     if (!user || !user.isActive) {
       throw new ApiError(401, "Invalid credentials");
     }
+
+    const passwordMatches = await bcrypt.compare(password, user.passwordHash);
+    if (!passwordMatches) {
+      throw new ApiError(401, "Invalid credentials");
+    }
+
     if (!user.emailVerifiedAt) {
       throw new ApiError(
         403,
         "Email is not verified. Please verify your email before logging in.",
         "EMAIL_NOT_VERIFIED"
       );
-    }
-
-    const passwordMatches = await bcrypt.compare(password, user.passwordHash);
-    if (!passwordMatches) {
-      throw new ApiError(401, "Invalid credentials");
     }
 
     const tokens = await issueSessionTokens({ userId: user.id });
@@ -470,10 +471,7 @@ const authService = {
     });
 
     if (!user || !user.isActive || user.emailVerifiedAt) {
-      return {
-        verificationEmailSent: false,
-        verificationExpiresAt: null,
-      };
+      return { accepted: true };
     }
 
     const latestOpenToken = await prisma.emailVerificationToken.findFirst({
@@ -494,36 +492,26 @@ const authService = {
       const remainingCooldown = env.AUTH_RESEND_VERIFICATION_COOLDOWN_SECONDS - ageSeconds;
 
       if (remainingCooldown > 0) {
-        throw new ApiError(
-          429,
-          `Please wait ${remainingCooldown} seconds before requesting another verification email.`,
-          "VERIFICATION_RESEND_RATE_LIMITED"
-        );
+        return { accepted: true };
       }
     }
 
-    const { token, expiresAt } = await createEmailVerificationToken({
-      userId: user.id,
-    });
-
-    let verificationEmailSent = true;
-
     try {
+      const { token, expiresAt } = await createEmailVerificationToken({
+        userId: user.id,
+      });
+
       await sendAccountVerificationEmail({
         user,
         token,
         expiresAt,
       });
     } catch (error) {
-      verificationEmailSent = false;
       // eslint-disable-next-line no-console
       console.error("[auth.resendVerification] Failed to send verification email:", error);
     }
 
-    return {
-      verificationEmailSent,
-      verificationExpiresAt: expiresAt,
-    };
+    return { accepted: true };
   },
 
   async forgotPassword({ email }) {

@@ -76,13 +76,10 @@ const authController = {
   }),
 
   resendVerification: asyncHandler(async (req, res) => {
-    const result = await authService.resendVerification(req.body);
+    await authService.resendVerification(req.body);
 
     res.status(200).json(
-      new ApiResponse("If this email exists and is unverified, a new link has been sent.", {
-        verificationEmailSent: result.verificationEmailSent,
-        verificationExpiresAt: result.verificationExpiresAt,
-      })
+      new ApiResponse("If this email exists and is unverified, a new link has been sent.")
     );
   }),
 
