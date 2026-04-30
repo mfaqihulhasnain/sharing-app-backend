@@ -234,7 +234,154 @@ const createPkceChallenge = (verifier) =>
   toBase64Url(crypto.createHash("sha256").update(verifier).digest());
 const createGoogleOAuthState = () => toBase64Url(crypto.randomBytes(24));
 
-const createGooglePlaceholderPassword = () => `${crypto.randomBytes(40).toString("hex")}Aa1!`;
+let loginTimingSafeDummyHash;
+const getLoginTimingSafeDummyHash = async () => {
+  if (!loginTimingSafeDummyHash) {
+    loginTimingSafeDummyHash = await bcrypt.hash(
+      "timing-safe-login-placeholder-Aa1!",
+      env.AUTH_BCRYPT_SALT_ROUNDS
+    );
+  }
+
+  return loginTimingSafeDummyHash;
+};
+
+const createGooglePlaceholderPassword = () => `${crypto.randomBytes(30).toString("hex")}Aa1!`;
+
+const resolveGoogleAuthUserAfterUniqueConflict = async ({
+  providerAccountId,
+  normalizedEmail,
+  now,
+}) => {
+  const concurrentOAuthAccount = await prisma.oAuthAccount.findFirst({
+    where: {
+      provider: GOOGLE_PROVIDER,
+      providerAccountId,
+    },
+    include: {
+      user: true,
+    },
+  });
+
+  if (concurrentOAuthAccount) {
+    if (!concurrentOAuthAccount.user?.isActive) {
+      throw new ApiError(403, "User is inactive");
+    }
+
+    await prisma.oAuthAccount.update({
+      where: {
+        id: concurrentOAuthAccount.id,
+      },
+      data: {
+        providerEmail: normalizedEmail,
+      },
+    });
+
+    if (concurrentOAuthAccount.user.emailVerifiedAt) {
+      return concurrentOAuthAccount.user;
+    }
+
+    return prisma.user.update({
+      where: {
+        id: concurrentOAuthAccount.user.id,
+      },
+      data: {
+        emailVerifiedAt: now,
+      },
+    });
+  }
+
+  const concurrentUser = await prisma.user.findUnique({
+    where: {
+      email: normalizedEmail,
+    },
+  });
+
+  if (!concurrentUser) {
+    throw new ApiError(401, "Google authentication failed");
+  }
+
+  if (!concurrentUser.isActive) {
+    throw new ApiError(403, "User is inactive");
+  }
+
+  const existingUserGoogleLink = await prisma.oAuthAccount.findFirst({
+    where: {
+      userId: concurrentUser.id,
+      provider: GOOGLE_PROVIDER,
+    },
+  });
+
+  if (existingUserGoogleLink) {
+    if (existingUserGoogleLink.providerAccountId !== providerAccountId) {
+      throw new ApiError(
+        409,
+        "This email is already linked to a different Google account."
+      );
+    }
+
+    await prisma.oAuthAccount.update({
+      where: {
+        id: existingUserGoogleLink.id,
+      },
+      data: {
+        providerEmail: normalizedEmail,
+      },
+    });
+  } else {
+    try {
+      await prisma.oAuthAccount.create({
+        data: {
+          userId: concurrentUser.id,
+          provider: GOOGLE_PROVIDER,
+          providerAccountId,
+          providerEmail: normalizedEmail,
+        },
+      });
+    } catch (error) {
+      if (error?.code !== "P2002") {
+        throw error;
+      }
+
+      const linkedAfterRace = await prisma.oAuthAccount.findFirst({
+        where: {
+          provider: GOOGLE_PROVIDER,
+          providerAccountId,
+        },
+      });
+
+      if (!linkedAfterRace) {
+        const userScopedLink = await prisma.oAuthAccount.findFirst({
+          where: {
+            userId: concurrentUser.id,
+            provider: GOOGLE_PROVIDER,
+          },
+        });
+
+        if (!userScopedLink || userScopedLink.providerAccountId !== providerAccountId) {
+          throw new ApiError(
+            409,
+            "This email is already linked to a different Google account."
+          );
+        }
+      }
+    }
+  }
+
+  if (concurrentUser.emailVerifiedAt) {
+    return concurrentUser;
+  }
+
+  return prisma.user.update({
+    where: {
+      id: concurrentUser.id,
+    },
+    data: {
+      emailVerifiedAt: now,
+    },
+  });
+};
+
 const createEmailVerificationToken = async ({ userId }) => {
   const token = crypto.randomBytes(EMAIL_VERIFICATION_TOKEN_BYTES).toString("hex");
   const tokenHash = hashToken(token);
@@ -525,32 +672,11 @@ const authService = {
         throw error;
       }
 
-      const concurrentOAuthAccount = await prisma.oAuthAccount.findFirst({
-        where: {
-          provider: GOOGLE_PROVIDER,
-          providerAccountId,
-        },
-        include: {
-          user: true,
-        },
+      user = await resolveGoogleAuthUserAfterUniqueConflict({
+        providerAccountId,
+        normalizedEmail,
+        now,
       });
-
-      if (!concurrentOAuthAccount?.user?.isActive) {
-        throw new ApiError(403, "User is inactive");
-      }
-
-      if (concurrentOAuthAccount.user.emailVerifiedAt) {
-        user = concurrentOAuthAccount.user;
-      } else {
-        user = await prisma.user.update({
-          where: {
-            id: concurrentOAuthAccount.user.id,
-          },
-          data: {
-            emailVerifiedAt: now,
-          },
-        });
-      }
     }
 
     const tokens = await issueSessionTokens({
@@ -634,12 +760,9 @@ const authService = {
       },
     });
 
-    if (!user || !user.isActive) {
-      throw new ApiError(401, "Invalid credentials");
-    }
-
-    const passwordMatches = await bcrypt.compare(password, user.passwordHash);
-    if (!passwordMatches) {
+    const passwordHashToCompare = user?.passwordHash || (await getLoginTimingSafeDummyHash());
+    const passwordMatches = await bcrypt.compare(password, passwordHashToCompare);
+    if (!user || !user.isActive || !passwordMatches) {
       throw new ApiError(401, "Invalid credentials");
     }
 

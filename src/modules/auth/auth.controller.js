@@ -54,12 +54,30 @@ const extractAccessToken = (req) => {
 const GOOGLE_OAUTH_STATE_COOKIE_NAME = "oauth_google_state";
 const GOOGLE_OAUTH_PKCE_COOKIE_NAME = "oauth_google_pkce_verifier";
 
+const getGoogleOAuthCookiePath = () => {
+  try {
+    const callbackPath = new URL(env.AUTH_GOOGLE_CALLBACK_URL).pathname;
+    if (!callbackPath) {
+      return "/api/v1/auth/google";
+    }
+
+    const segments = callbackPath.split("/").filter(Boolean);
+    if (segments.length <= 1) {
+      return "/";
+    }
+
+    return `/${segments.slice(0, -1).join("/")}`;
+  } catch (_error) {
+    return "/api/v1/auth/google";
+  }
+};
+
 const getGoogleOAuthCookieOptions = () => {
   const options = {
     httpOnly: true,
     secure: env.AUTH_COOKIE_SECURE,
     sameSite: "lax",
-    path: env.AUTH_REFRESH_COOKIE_PATH,
+    path: getGoogleOAuthCookiePath(),
     maxAge: env.AUTH_GOOGLE_STATE_TTL_SECONDS * 1000,
   };
 
