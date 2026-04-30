@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
+import { OAuth2Client } from "google-auth-library";
 import prisma from "../../lib/prisma.js";
 import { sendPasswordResetEmail, sendVerificationEmail } from "../../lib/mailer.js";
 import { env } from "../../config/index.js";
@@ -8,6 +9,8 @@ import ApiError from "../../utils/ApiError.js";
 
 const ACCESS_TOKEN_TYPE = "access";
 const REFRESH_TOKEN_TYPE = "refresh";
+const GOOGLE_PROVIDER = "google";
+const GOOGLE_ISSUERS = new Set(["accounts.google.com", "https://accounts.google.com"]);
 const EMAIL_VERIFICATION_TOKEN_BYTES = 32;
 const PASSWORD_RESET_TOKEN_BYTES = 32;
 
@@ -193,6 +196,45 @@ const getPasswordResetLink = (token) => {
   const separator = env.AUTH_PASSWORD_RESET_URL.includes("?") ? "&" : "?";
   return `${env.AUTH_PASSWORD_RESET_URL}${separator}token=${encodeURIComponent(token)}`;
 };
+
+const ensureGoogleAuthConfig = () => {
+  if (
+    !env.AUTH_GOOGLE_CLIENT_ID ||
+    !env.AUTH_GOOGLE_CLIENT_SECRET ||
+    !env.AUTH_GOOGLE_CALLBACK_URL
+  ) {
+    throw new ApiError(
+      500,
+      "Google auth is not configured. Set AUTH_GOOGLE_CLIENT_ID, AUTH_GOOGLE_CLIENT_SECRET, and AUTH_GOOGLE_CALLBACK_URL."
+    );
+  }
+};
+
+const createGoogleOAuthClient = () =>
+  new OAuth2Client({
+    clientId: env.AUTH_GOOGLE_CLIENT_ID,
+    clientSecret: env.AUTH_GOOGLE_CLIENT_SECRET,
+    redirectUri: env.AUTH_GOOGLE_CALLBACK_URL,
+  });
+
+const getGoogleScopes = () =>
+  env.AUTH_GOOGLE_SCOPES.split(/\s+/)
+    .map((scope) => scope.trim())
+    .filter(Boolean);
+
+const toBase64Url = (buffer) =>
+  buffer
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+
+const createPkceVerifier = () => toBase64Url(crypto.randomBytes(48));
+const createPkceChallenge = (verifier) =>
+  toBase64Url(crypto.createHash("sha256").update(verifier).digest());
+const createGoogleOAuthState = () => toBase64Url(crypto.randomBytes(24));
+
+const createGooglePlaceholderPassword = () => `${crypto.randomBytes(40).toString("hex")}Aa1!`;
 const createEmailVerificationToken = async ({ userId }) => {
   const token = crypto.randomBytes(EMAIL_VERIFICATION_TOKEN_BYTES).toString("hex");
   const tokenHash = hashToken(token);
@@ -298,6 +340,229 @@ const createDisplayNameFromEmail = (email) => {
 
 // Purpose: contain auth business rules without touching Express req/res objects.
 const authService = {
+  async startGoogleAuth() {
+    ensureGoogleAuthConfig();
+
+    const googleOAuthClient = createGoogleOAuthClient();
+    const state = createGoogleOAuthState();
+    const pkceVerifier = createPkceVerifier();
+    const pkceChallenge = createPkceChallenge(pkceVerifier);
+
+    const authorizationUrl = googleOAuthClient.generateAuthUrl({
+      access_type: "offline",
+      scope: getGoogleScopes(),
+      include_granted_scopes: true,
+      prompt: "select_account",
+      state,
+      code_challenge: pkceChallenge,
+      code_challenge_method: "S256",
+    });
+
+    return {
+      authorizationUrl,
+      state,
+      pkceVerifier,
+    };
+  },
+
+  async handleGoogleCallback({ code, state, storedState, pkceVerifier }) {
+    ensureGoogleAuthConfig();
+
+    if (!storedState || storedState !== state) {
+      throw new ApiError(400, "Invalid Google auth state");
+    }
+
+    if (!pkceVerifier) {
+      throw new ApiError(400, "Google auth verifier is missing");
+    }
+
+    const googleOAuthClient = createGoogleOAuthClient();
+    const { tokens: googleTokens } = await googleOAuthClient.getToken({
+      code,
+      codeVerifier: pkceVerifier,
+    });
+
+    const idToken = googleTokens?.id_token;
+    if (!idToken) {
+      throw new ApiError(401, "Google authentication failed");
+    }
+
+    const ticket = await googleOAuthClient.verifyIdToken({
+      idToken,
+      audience: env.AUTH_GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const providerAccountId = payload?.sub;
+    const providerEmail = payload?.email;
+    const issuer = payload?.iss;
+    const emailVerified = payload?.email_verified === true;
+
+    if (
+      !providerAccountId ||
+      !providerEmail ||
+      !emailVerified ||
+      !issuer ||
+      !GOOGLE_ISSUERS.has(issuer)
+    ) {
+      throw new ApiError(401, "Google account is not eligible for sign in");
+    }
+
+    const normalizedEmail = normalizeEmail(providerEmail);
+    const now = new Date();
+    const resolvedName =
+      typeof payload?.name === "string" && payload.name.trim()
+        ? payload.name.trim()
+        : createDisplayNameFromEmail(normalizedEmail);
+
+    let user;
+
+    try {
+      user = await prisma.$transaction(async (transactionClient) => {
+        const existingOAuthAccount = await transactionClient.oAuthAccount.findFirst({
+          where: {
+            provider: GOOGLE_PROVIDER,
+            providerAccountId,
+          },
+          include: {
+            user: true,
+          },
+        });
+
+        if (existingOAuthAccount) {
+          if (!existingOAuthAccount.user?.isActive) {
+            throw new ApiError(403, "User is inactive");
+          }
+
+          await transactionClient.oAuthAccount.update({
+            where: {
+              id: existingOAuthAccount.id,
+            },
+            data: {
+              providerEmail: normalizedEmail,
+            },
+          });
+
+          if (existingOAuthAccount.user.emailVerifiedAt) {
+            return existingOAuthAccount.user;
+          }
+
+          return transactionClient.user.update({
+            where: {
+              id: existingOAuthAccount.user.id,
+            },
+            data: {
+              emailVerifiedAt: now,
+            },
+          });
+        }
+
+        const existingUser = await transactionClient.user.findUnique({
+          where: {
+            email: normalizedEmail,
+          },
+        });
+
+        if (existingUser) {
+          if (!existingUser.isActive) {
+            throw new ApiError(403, "User is inactive");
+          }
+
+          await transactionClient.oAuthAccount.create({
+            data: {
+              userId: existingUser.id,
+              provider: GOOGLE_PROVIDER,
+              providerAccountId,
+              providerEmail: normalizedEmail,
+            },
+          });
+
+          if (existingUser.emailVerifiedAt) {
+            return existingUser;
+          }
+
+          return transactionClient.user.update({
+            where: {
+              id: existingUser.id,
+            },
+            data: {
+              emailVerifiedAt: now,
+            },
+          });
+        }
+
+        const passwordHash = await bcrypt.hash(
+          createGooglePlaceholderPassword(),
+          env.AUTH_BCRYPT_SALT_ROUNDS
+        );
+
+        const createdUser = await transactionClient.user.create({
+          data: {
+            email: normalizedEmail,
+            name: resolvedName,
+            passwordHash,
+            emailVerifiedAt: now,
+          },
+        });
+
+        await transactionClient.oAuthAccount.create({
+          data: {
+            userId: createdUser.id,
+            provider: GOOGLE_PROVIDER,
+            providerAccountId,
+            providerEmail: normalizedEmail,
+          },
+        });
+
+        return createdUser;
+      });
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+
+      if (error?.code !== "P2002") {
+        throw error;
+      }
+
+      const concurrentOAuthAccount = await prisma.oAuthAccount.findFirst({
+        where: {
+          provider: GOOGLE_PROVIDER,
+          providerAccountId,
+        },
+        include: {
+          user: true,
+        },
+      });
+
+      if (!concurrentOAuthAccount?.user?.isActive) {
+        throw new ApiError(403, "User is inactive");
+      }
+
+      if (concurrentOAuthAccount.user.emailVerifiedAt) {
+        user = concurrentOAuthAccount.user;
+      } else {
+        user = await prisma.user.update({
+          where: {
+            id: concurrentOAuthAccount.user.id,
+          },
+          data: {
+            emailVerifiedAt: now,
+          },
+        });
+      }
+    }
+
+    const tokens = await issueSessionTokens({
+      userId: user.id,
+    });
+
+    return {
+      user: toPublicUser(user),
+      ...tokens,
+    };
+  },
+
   async register({ email, password }) {
     const normalizedEmail = normalizeEmail(email);
 

@@ -66,6 +66,25 @@ const envSchema = z.object({
   ),
   AUTH_EMAIL_VERIFICATION_URL: z.preprocess(emptyToUndefined, z.string().url().optional()),
   AUTH_PASSWORD_RESET_URL: z.preprocess(emptyToUndefined, z.string().url().optional()),
+  AUTH_GOOGLE_CLIENT_ID: z.preprocess(emptyToUndefined, z.string().optional()),
+  AUTH_GOOGLE_CLIENT_SECRET: z.preprocess(emptyToUndefined, z.string().optional()),
+  AUTH_GOOGLE_CALLBACK_URL: z.preprocess(emptyToUndefined, z.string().url().optional()),
+  AUTH_GOOGLE_SUCCESS_REDIRECT_URL: z.preprocess(
+    emptyToUndefined,
+    z.string().url().optional()
+  ),
+  AUTH_GOOGLE_FAILURE_REDIRECT_URL: z.preprocess(
+    emptyToUndefined,
+    z.string().url().optional()
+  ),
+  AUTH_GOOGLE_STATE_TTL_SECONDS: z.preprocess(
+    emptyToUndefined,
+    z.coerce.number().int().positive().max(3600).default(600)
+  ),
+  AUTH_GOOGLE_SCOPES: z.preprocess(
+    emptyToUndefined,
+    z.string().min(1).default("openid email profile")
+  ),
   AUTH_REFRESH_COOKIE_NAME: z.preprocess(
     emptyToUndefined,
     z.string().min(1).default("refreshToken")
@@ -106,6 +125,9 @@ const authSecret =
 const primaryClientOrigin = getPrimaryOrigin(parsedEnv.CLIENT_ORIGIN);
 const defaultEmailVerificationUrl = `${primaryClientOrigin || "http://localhost:3000"}/verify-email`;
 const defaultPasswordResetUrl = `${primaryClientOrigin || "http://localhost:3000"}/reset-password`;
+const defaultGoogleCallbackUrl = `http://localhost:${parsedEnv.PORT}/api/v1/auth/google/callback`;
+const defaultGoogleSuccessRedirectUrl = `${primaryClientOrigin || "http://localhost:3000"}/oauth/callback`;
+const defaultGoogleFailureRedirectUrl = `${primaryClientOrigin || "http://localhost:3000"}/login`;
 
 if (!authSecret) {
   throw new Error("AUTH_SECRET is required in production");
@@ -118,6 +140,12 @@ const env = {
     parsedEnv.AUTH_EMAIL_VERIFICATION_URL || defaultEmailVerificationUrl,
   AUTH_PASSWORD_RESET_URL:
     parsedEnv.AUTH_PASSWORD_RESET_URL || defaultPasswordResetUrl,
+  AUTH_GOOGLE_CALLBACK_URL:
+    parsedEnv.AUTH_GOOGLE_CALLBACK_URL || defaultGoogleCallbackUrl,
+  AUTH_GOOGLE_SUCCESS_REDIRECT_URL:
+    parsedEnv.AUTH_GOOGLE_SUCCESS_REDIRECT_URL || defaultGoogleSuccessRedirectUrl,
+  AUTH_GOOGLE_FAILURE_REDIRECT_URL:
+    parsedEnv.AUTH_GOOGLE_FAILURE_REDIRECT_URL || defaultGoogleFailureRedirectUrl,
   AUTH_COOKIE_SECURE:
     parsedEnv.AUTH_COOKIE_SECURE ?? parsedEnv.NODE_ENV === "production",
   MAIL_SECURE: parsedEnv.MAIL_SECURE ?? false,

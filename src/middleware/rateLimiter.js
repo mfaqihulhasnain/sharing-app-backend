@@ -63,6 +63,13 @@ const authResetPasswordRateLimiter = createLimiter({
   message: "Too many password reset attempts. Please try again later.",
 });
 
+// Purpose: protect Google auth start endpoint from abuse spikes.
+const authGoogleStartRateLimiter = createLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: "Too many Google sign-in attempts. Please try again later.",
+});
+
 export default rateLimiter;
 export {
   authRegisterRateLimiter,
@@ -71,4 +78,5 @@ export {
   authResendVerificationRateLimiter,
   authForgotPasswordRateLimiter,
   authResetPasswordRateLimiter,
+  authGoogleStartRateLimiter,
 };

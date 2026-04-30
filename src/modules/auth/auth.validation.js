@@ -58,6 +58,15 @@ const verifyEmail = z.object({
     .strict(),
 });
 
+const googleCallback = z.object({
+  query: z
+    .object({
+      code: z.string().trim().min(1),
+      state: z.string().trim().min(1),
+    })
+    .passthrough(),
+});
+
 const resendVerification = z.object({
   body: z
     .object({
@@ -90,6 +99,7 @@ const authValidation = {
   refreshSession,
   logout,
   verifyEmail,
+  googleCallback,
   resendVerification,
   forgotPassword,
   resetPassword,

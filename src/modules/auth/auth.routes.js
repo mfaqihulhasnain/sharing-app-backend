@@ -10,6 +10,7 @@ import {
   authResendVerificationRateLimiter,
   authForgotPasswordRateLimiter,
   authResetPasswordRateLimiter,
+  authGoogleStartRateLimiter,
 } from "../../middleware/rateLimiter.js";
 
 // Purpose: declare auth endpoints and attach auth-specific bindings.
@@ -20,6 +21,12 @@ router.post(
   authRegisterRateLimiter,
   validate(authValidation.register),
   authController.register
+);
+router.get("/google/start", authGoogleStartRateLimiter, authController.googleStart);
+router.get(
+  "/google/callback",
+  validate(authValidation.googleCallback),
+  authController.googleCallback
 );
 router.post("/verify-email", validate(authValidation.verifyEmail), authController.verifyEmail);
 router.post(

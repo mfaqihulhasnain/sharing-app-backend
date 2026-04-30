@@ -51,8 +51,80 @@ const extractAccessToken = (req) => {
   return getCookie(req, "accessToken");
 };
 
+const GOOGLE_OAUTH_STATE_COOKIE_NAME = "oauth_google_state";
+const GOOGLE_OAUTH_PKCE_COOKIE_NAME = "oauth_google_pkce_verifier";
+
+const getGoogleOAuthCookieOptions = () => {
+  const options = {
+    httpOnly: true,
+    secure: env.AUTH_COOKIE_SECURE,
+    sameSite: "lax",
+    path: env.AUTH_REFRESH_COOKIE_PATH,
+    maxAge: env.AUTH_GOOGLE_STATE_TTL_SECONDS * 1000,
+  };
+
+  if (env.AUTH_COOKIE_DOMAIN) {
+    options.domain = env.AUTH_COOKIE_DOMAIN;
+  }
+
+  return options;
+};
+
+const setGoogleOAuthCookies = ({ res, state, pkceVerifier }) => {
+  const options = getGoogleOAuthCookieOptions();
+  res.cookie(GOOGLE_OAUTH_STATE_COOKIE_NAME, state, options);
+  res.cookie(GOOGLE_OAUTH_PKCE_COOKIE_NAME, pkceVerifier, options);
+};
+
+const clearGoogleOAuthCookies = (res) => {
+  const options = getGoogleOAuthCookieOptions();
+  delete options.maxAge;
+  res.clearCookie(GOOGLE_OAUTH_STATE_COOKIE_NAME, options);
+  res.clearCookie(GOOGLE_OAUTH_PKCE_COOKIE_NAME, options);
+};
+
+const buildGoogleFailureRedirectUrl = () => {
+  const url = new URL(env.AUTH_GOOGLE_FAILURE_REDIRECT_URL);
+  url.searchParams.set("reason", "google_auth_failed");
+  return url.toString();
+};
+
 // Purpose: host auth request handlers and delegate work to the auth service.
 const authController = {
+  googleStart: asyncHandler(async (_req, res) => {
+    const { authorizationUrl, state, pkceVerifier } = await authService.startGoogleAuth();
+    setGoogleOAuthCookies({ res, state, pkceVerifier });
+
+    res.redirect(302, authorizationUrl);
+  }),
+
+  googleCallback: asyncHandler(async (req, res) => {
+    const validatedQuery = req.validatedQuery || req.query;
+    const code = validatedQuery.code;
+    const state = validatedQuery.state;
+    const storedState = getCookie(req, GOOGLE_OAUTH_STATE_COOKIE_NAME);
+    const pkceVerifier = getCookie(req, GOOGLE_OAUTH_PKCE_COOKIE_NAME);
+    const failureRedirectUrl = buildGoogleFailureRedirectUrl();
+
+    clearGoogleOAuthCookies(res);
+
+    try {
+      const result = await authService.handleGoogleCallback({
+        code,
+        state,
+        storedState,
+        pkceVerifier,
+      });
+
+      setRefreshCookie(res, result.refreshToken);
+      res.redirect(302, env.AUTH_GOOGLE_SUCCESS_REDIRECT_URL);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("[auth.googleCallback] Google auth failed:", error);
+      res.redirect(302, failureRedirectUrl);
+    }
+  }),
+
   register: asyncHandler(async (req, res) => {
     const result = await authService.register(req.body);
     res.status(201).json(
