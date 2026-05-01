@@ -20,6 +20,30 @@ const booleanFromString = (value) => {
   return value;
 };
 
+const parseTrustProxy = (value) => {
+  const normalized = emptyToUndefined(value);
+  if (normalized === undefined) return false;
+
+  const parsedBoolean = booleanFromString(normalized);
+  if (typeof parsedBoolean === "boolean") {
+    return parsedBoolean;
+  }
+
+  if (typeof normalized === "number" && Number.isFinite(normalized)) {
+    return normalized;
+  }
+
+  if (typeof normalized !== "string") {
+    return normalized;
+  }
+
+  if (/^\d+$/.test(normalized.trim())) {
+    return Number(normalized.trim());
+  }
+
+  return normalized.trim();
+};
+
 const getPrimaryOrigin = (value) => {
   if (!value) return undefined;
 
@@ -102,6 +126,16 @@ const envSchema = z.object({
     z.boolean().optional()
   ),
   AUTH_COOKIE_DOMAIN: z.preprocess(emptyToUndefined, z.string().optional()),
+  TRUST_PROXY: z.preprocess(parseTrustProxy, z.union([z.boolean(), z.number(), z.string()]).default(false)),
+  PRESENCE_GUEST_COOKIE_NAME: z.preprocess(
+    emptyToUndefined,
+    z.string().min(1).default("presence_guest_id")
+  ),
+  PRESENCE_TOPIC_PREFIX: z.preprocess(
+    emptyToUndefined,
+    z.string().min(1).default("presence:wifi")
+  ),
+  PRESENCE_HASH_SECRET: z.preprocess(emptyToUndefined, z.string().min(16).optional()),
   AUTH_BCRYPT_SALT_ROUNDS: z.preprocess(
     emptyToUndefined,
     z.coerce.number().int().min(8).max(15).default(10)
@@ -136,6 +170,7 @@ if (!authSecret) {
 const env = {
   ...parsedEnv,
   AUTH_SECRET: authSecret,
+  PRESENCE_HASH_SECRET: parsedEnv.PRESENCE_HASH_SECRET || authSecret,
   AUTH_EMAIL_VERIFICATION_URL:
     parsedEnv.AUTH_EMAIL_VERIFICATION_URL || defaultEmailVerificationUrl,
   AUTH_PASSWORD_RESET_URL:

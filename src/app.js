@@ -18,6 +18,7 @@ const configuredOrigins = env.CLIENT_ORIGIN
 const fallbackCorsOrigin = env.NODE_ENV === "production" ? false : true;
 
 app.set("port", env.PORT);
+app.set("trust proxy", env.TRUST_PROXY);
 app.use(helmet());
 app.use(
   cors({
