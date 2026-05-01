@@ -7,7 +7,7 @@ const userController = {
   listUsers: asyncHandler(async (req, res) => {
     const query = req.validatedQuery || req.query;
     const result = await userService.listUsers({
-      userId: req.auth.userId,
+      userId: req.auth?.userId,
       q: query.q,
       page: query.page,
       limit: query.limit,

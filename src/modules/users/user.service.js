@@ -6,12 +6,14 @@ const DIRECTORY_PAGE_SIZE_DEFAULT = 20;
 
 const buildDirectoryWhere = ({ userId, includeMe, query }) => {
   const normalizedQuery = query.trim();
+  const shouldExcludeRequester =
+    !includeMe && Number.isInteger(userId);
 
   return {
     emailVerifiedAt: {
       not: null,
     },
-    ...(includeMe ? {} : { id: { not: userId } }),
+    ...(shouldExcludeRequester ? { id: { not: userId } } : {}),
     ...(normalizedQuery
       ? {
           OR: [
