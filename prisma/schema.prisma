@@ -95,6 +95,7 @@ model Share {
   senderActorId String
   senderUserId  Int?
   text          String?
+  deletedAt     DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -104,6 +105,7 @@ model Share {
   files      ShareFile[]
 
   @@index([createdAt])
+  @@index([deletedAt, createdAt])
   @@index([senderActorId, createdAt])
   @@index([senderUserId, createdAt])
 }

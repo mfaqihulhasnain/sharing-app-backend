@@ -28,10 +28,17 @@ const createShare = z.object({
     .strict(),
 });
 
+const deleteShare = z.object({
+  params: z.object({
+    id: z.coerce.number().int().positive(),
+  }),
+});
+
 // Purpose: store share request schemas close to the module boundary.
 const shareValidation = {
   listShares,
   createShare,
+  deleteShare,
 };
 
 export default shareValidation;

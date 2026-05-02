@@ -56,6 +56,34 @@ const shareController = {
 
     res.status(201).json(new ApiResponse("Share created", { share }));
   }),
+
+  deleteShare: asyncHandler(async (req, res) => {
+    const { viewer, setGuestCookie } = await resolvePresenceViewerContext({
+      authorizationHeader: req.headers.authorization,
+      cookieHeader: req.headers.cookie,
+    });
+    const deletedShare = await shareService.deleteShare({
+      id: req.params.id,
+      viewerActorId: viewer.actorId,
+    });
+
+    applyGuestCookieIfNeeded(res, setGuestCookie);
+
+    const topic = buildPresenceTopic({
+      ip: req.ip,
+    });
+    try {
+      await shareRealtime.publishShareDeleted({
+        topic,
+        id: deletedShare.id,
+      });
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn("[shares] Realtime delete publish failed:", error?.message || error);
+    }
+
+    res.status(204).end();
+  }),
 };
 
 export default shareController;

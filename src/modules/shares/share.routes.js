@@ -8,5 +8,6 @@ const router = express.Router();
 
 router.get("/", validate(shareValidation.listShares), shareController.listShares);
 router.post("/", validate(shareValidation.createShare), shareController.createShare);
+router.delete("/:id", validate(shareValidation.deleteShare), shareController.deleteShare);
 
 export default router;

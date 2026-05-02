@@ -8,6 +8,7 @@ import {
 } from "./share.model.js";
 
 const DEFAULT_PAGE_LIMIT = 50;
+const SHARE_VISIBILITY_WINDOW_MS = 2 * 60 * 60 * 1000;
 
 const sanitizeAudienceActorIds = ({ audienceActorIds = [], viewerActorId }) =>
   [
@@ -101,6 +102,9 @@ const buildVisibilityWhere = ({ viewerActorId }) => ({
   ],
 });
 
+const getShareVisibilityWindowStart = () =>
+  new Date(Date.now() - SHARE_VISIBILITY_WINDOW_MS);
+
 // Purpose: contain share business rules without touching Express req/res objects.
 const shareService = {
   async createShare({
@@ -156,12 +160,21 @@ const shareService = {
     }
 
     const paginationWhere = toPaginationWhere(before);
+    const visibilityWindowStart = getShareVisibilityWindowStart();
     const shares = await prisma.share.findMany({
       where: {
         AND: [
           buildVisibilityWhere({
             viewerActorId,
           }),
+          {
+            deletedAt: null,
+          },
+          {
+            createdAt: {
+              gte: visibilityWindowStart,
+            },
+          },
           ...(paginationWhere ? [paginationWhere] : []),
         ],
       },
@@ -181,6 +194,47 @@ const shareService = {
         nextCursor,
         hasMore,
       },
+    };
+  },
+
+  async deleteShare({
+    id,
+    viewerActorId,
+  }) {
+    if (!viewerActorId || typeof viewerActorId !== "string") {
+      throw new ApiError(400, "Unable to resolve viewer actor");
+    }
+
+    const existingShare = await prisma.share.findUnique({
+      where: {
+        id,
+      },
+      select: {
+        id: true,
+        senderActorId: true,
+        deletedAt: true,
+      },
+    });
+
+    if (!existingShare || existingShare.deletedAt) {
+      throw new ApiError(404, "Share not found");
+    }
+
+    if (existingShare.senderActorId !== viewerActorId) {
+      throw new ApiError(403, "You can delete only your own shares");
+    }
+
+    await prisma.share.update({
+      where: {
+        id: existingShare.id,
+      },
+      data: {
+        deletedAt: new Date(),
+      },
+    });
+
+    return {
+      id: existingShare.id,
     };
   },
 };

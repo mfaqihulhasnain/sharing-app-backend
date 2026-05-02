@@ -1,6 +1,7 @@
 import { env } from "../../config/index.js";
 
 const SHARE_CREATED_EVENT = "share_created";
+const SHARE_DELETED_EVENT = "share_deleted";
 
 const getSupabaseUrl = () => env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 
@@ -50,6 +51,7 @@ const publishRealtimeBroadcast = async ({ topic, event, payload }) => {
 
 const shareRealtime = {
   SHARE_CREATED_EVENT,
+  SHARE_DELETED_EVENT,
   isRealtimePublishConfigured,
   async publishShareCreated({ topic, share }) {
     if (!topic || typeof topic !== "string") {
@@ -62,7 +64,20 @@ const shareRealtime = {
       payload: share,
     });
   },
+  async publishShareDeleted({ topic, id }) {
+    if (!topic || typeof topic !== "string") {
+      return false;
+    }
+
+    return publishRealtimeBroadcast({
+      topic,
+      event: SHARE_DELETED_EVENT,
+      payload: {
+        id,
+      },
+    });
+  },
 };
 
-export { SHARE_CREATED_EVENT, isRealtimePublishConfigured };
+export { SHARE_CREATED_EVENT, SHARE_DELETED_EVENT, isRealtimePublishConfigured };
 export default shareRealtime;
