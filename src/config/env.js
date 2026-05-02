@@ -136,6 +136,10 @@ const envSchema = z.object({
     z.string().min(1).default("presence:wifi")
   ),
   PRESENCE_HASH_SECRET: z.preprocess(emptyToUndefined, z.string().min(16).optional()),
+  SUPABASE_URL: z.preprocess(emptyToUndefined, z.string().url().optional()),
+  SUPABASE_SERVICE_ROLE_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
+  SUPABASE_ANON_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
+  SUPABASE_PUBLISHABLE_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
   AUTH_BCRYPT_SALT_ROUNDS: z.preprocess(
     emptyToUndefined,
     z.coerce.number().int().min(8).max(15).default(10)

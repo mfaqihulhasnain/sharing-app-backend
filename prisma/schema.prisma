@@ -91,18 +91,21 @@ model OAuthAccount {
 }
 
 model Share {
-  id        Int      @id @default(autoincrement())
-  senderId  Int
-  text      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            Int      @id @default(autoincrement())
+  senderActorId String
+  senderUserId  Int?
+  text          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  sender     User             @relation("SentShares", fields: [senderId], references: [id], onDelete: Restrict)
+  senderUser User?            @relation("SentShares", fields: [senderUserId], references: [id], onDelete: SetNull)
   recipients ShareRecipient[]
+  audiences  ShareAudience[]
   files      ShareFile[]
 
   @@index([createdAt])
-  @@index([senderId, createdAt])
+  @@index([senderActorId, createdAt])
+  @@index([senderUserId, createdAt])
 }
 
 model ShareRecipient {
@@ -116,6 +119,19 @@ model ShareRecipient {
 
   @@unique([shareId, userId])
   @@index([userId, createdAt])
+}
+
+model ShareAudience {
+  id        Int      @id @default(autoincrement())
+  shareId   Int
+  actorId   String
+  createdAt DateTime @default(now())
+
+  share Share @relation(fields: [shareId], references: [id], onDelete: Cascade)
+
+  @@unique([shareId, actorId])
+  @@index([actorId, createdAt])
+  @@index([shareId, createdAt])
 }
 
 model ShareFile {

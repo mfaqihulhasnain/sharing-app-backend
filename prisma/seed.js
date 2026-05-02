@@ -106,6 +106,7 @@ async function clearExistingData() {
   log("Clearing existing data...");
   const [
     deletedFiles,
+    deletedAudiences,
     deletedRecipients,
     deletedShares,
     deletedVerificationTokens,
@@ -114,6 +115,7 @@ async function clearExistingData() {
     deletedUsers,
   ] = await prisma.$transaction([
     prisma.shareFile.deleteMany({}),
+    prisma.shareAudience.deleteMany({}),
     prisma.shareRecipient.deleteMany({}),
     prisma.share.deleteMany({}),
     prisma.emailVerificationToken.deleteMany({}),
@@ -123,6 +125,7 @@ async function clearExistingData() {
   ]);
 
   log(`Deleted share files: ${deletedFiles.count}`);
+  log(`Deleted share audiences: ${deletedAudiences.count}`);
   log(`Deleted share recipients: ${deletedRecipients.count}`);
   log(`Deleted shares: ${deletedShares.count}`);
   log(`Deleted verification tokens: ${deletedVerificationTokens.count}`);
@@ -187,19 +190,20 @@ async function seedShares(userIdByEmail) {
     const shareDate = new Date(share.createdAt);
     const senderId = resolveUserId(userIdByEmail, share.senderEmail, "sender");
 
-    const recipientRows = share.audienceEmails.map((email) => ({
-      userId: resolveUserId(userIdByEmail, email, "audience"),
+    const audienceRows = share.audienceEmails.map((email) => ({
+      actorId: `u:${resolveUserId(userIdByEmail, email, "audience")}`,
       createdAt: shareDate,
     }));
 
     const createdShare = await prisma.share.create({
       data: {
-        senderId,
+        senderActorId: `u:${senderId}`,
+        senderUserId: senderId,
         text: share.text || null,
         createdAt: shareDate,
         updatedAt: shareDate,
-        recipients: {
-          create: recipientRows,
+        audiences: {
+          create: audienceRows,
         },
         files: {
           create: share.files.map((file, index) => ({
@@ -228,9 +232,10 @@ async function seedShares(userIdByEmail) {
 }
 
 async function printSummary() {
-  const [users, shares, recipients, files] = await prisma.$transaction([
+  const [users, shares, audiences, recipients, files] = await prisma.$transaction([
     prisma.user.count(),
     prisma.share.count(),
+    prisma.shareAudience.count(),
     prisma.shareRecipient.count(),
     prisma.shareFile.count(),
   ]);
@@ -238,6 +243,7 @@ async function printSummary() {
   log("Seed summary:");
   log(`- users: ${users}`);
   log(`- shares: ${shares}`);
+  log(`- audiences: ${audiences}`);
   log(`- recipients: ${recipients}`);
   log(`- files: ${files}`);
   log(`Default seeded password for all users: ${SEED_PASSWORD}`);
