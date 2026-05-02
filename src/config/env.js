@@ -154,11 +154,11 @@ const envSchema = z.object({
   ),
   SHARE_UPLOAD_MAX_FILE_SIZE_BYTES: z.preprocess(
     emptyToUndefined,
-    z.coerce.number().int().positive().default(26214400)
+    z.coerce.number().int().positive().default(10485760)
   ),
   SHARE_UPLOAD_MAX_TOTAL_SIZE_BYTES: z.preprocess(
     emptyToUndefined,
-    z.coerce.number().int().positive().default(104857600)
+    z.coerce.number().int().positive().default(52428800)
   ),
   AUTH_BCRYPT_SALT_ROUNDS: z.preprocess(
     emptyToUndefined,
