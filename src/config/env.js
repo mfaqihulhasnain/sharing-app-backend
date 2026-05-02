@@ -140,6 +140,26 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
   SUPABASE_ANON_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
   SUPABASE_PUBLISHABLE_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
+  SHARE_FILES_BUCKET: z.preprocess(
+    emptyToUndefined,
+    z.string().min(1).default("share-files")
+  ),
+  SHARE_DOWNLOAD_URL_TTL_SECONDS: z.preprocess(
+    emptyToUndefined,
+    z.coerce.number().int().min(30).max(86400).default(300)
+  ),
+  SHARE_UPLOAD_MAX_FILES: z.preprocess(
+    emptyToUndefined,
+    z.coerce.number().int().positive().max(100).default(10)
+  ),
+  SHARE_UPLOAD_MAX_FILE_SIZE_BYTES: z.preprocess(
+    emptyToUndefined,
+    z.coerce.number().int().positive().default(26214400)
+  ),
+  SHARE_UPLOAD_MAX_TOTAL_SIZE_BYTES: z.preprocess(
+    emptyToUndefined,
+    z.coerce.number().int().positive().default(104857600)
+  ),
   AUTH_BCRYPT_SALT_ROUNDS: z.preprocess(
     emptyToUndefined,
     z.coerce.number().int().min(8).max(15).default(10)

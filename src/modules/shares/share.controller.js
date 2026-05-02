@@ -12,6 +12,34 @@ const applyGuestCookieIfNeeded = (res, setGuestCookie) => {
 
 // Purpose: host share request handlers and delegate work to the share service.
 const shareController = {
+  initUploads: asyncHandler(async (req, res) => {
+    const { viewer, setGuestCookie } = await resolvePresenceViewerContext({
+      authorizationHeader: req.headers.authorization,
+      cookieHeader: req.headers.cookie,
+    });
+    const result = await shareService.initUploads({
+      viewerActorId: viewer.actorId,
+      files: req.body.files,
+    });
+
+    applyGuestCookieIfNeeded(res, setGuestCookie);
+    res.status(201).json(new ApiResponse("Share uploads initialized", result));
+  }),
+
+  abortUploads: asyncHandler(async (req, res) => {
+    const { viewer, setGuestCookie } = await resolvePresenceViewerContext({
+      authorizationHeader: req.headers.authorization,
+      cookieHeader: req.headers.cookie,
+    });
+    await shareService.abortUploads({
+      viewerActorId: viewer.actorId,
+      uploadIds: req.body.uploadIds,
+    });
+
+    applyGuestCookieIfNeeded(res, setGuestCookie);
+    res.status(204).end();
+  }),
+
   listShares: asyncHandler(async (req, res) => {
     const query = req.validatedQuery || req.query;
     const { viewer, setGuestCookie } = await resolvePresenceViewerContext({
@@ -37,6 +65,7 @@ const shareController = {
       viewer,
       text: req.body.text,
       audienceActorIds: req.body.audienceActorIds,
+      uploadIds: req.body.uploadIds,
     });
 
     applyGuestCookieIfNeeded(res, setGuestCookie);
@@ -55,6 +84,20 @@ const shareController = {
     }
 
     res.status(201).json(new ApiResponse("Share created", { share }));
+  }),
+
+  getShareFileDownloadUrl: asyncHandler(async (req, res) => {
+    const { viewer, setGuestCookie } = await resolvePresenceViewerContext({
+      authorizationHeader: req.headers.authorization,
+      cookieHeader: req.headers.cookie,
+    });
+    const result = await shareService.getShareFileDownloadUrl({
+      id: req.params.id,
+      viewerActorId: viewer.actorId,
+    });
+
+    applyGuestCookieIfNeeded(res, setGuestCookie);
+    res.status(200).json(new ApiResponse("File download URL generated", result));
   }),
 
   deleteShare: asyncHandler(async (req, res) => {

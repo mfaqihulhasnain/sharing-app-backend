@@ -103,6 +103,7 @@ model Share {
   recipients ShareRecipient[]
   audiences  ShareAudience[]
   files      ShareFile[]
+  uploads    ShareUpload[]
 
   @@index([createdAt])
   @@index([deletedAt, createdAt])
@@ -148,5 +149,27 @@ model ShareFile {
 
   share Share @relation(fields: [shareId], references: [id], onDelete: Cascade)
 
+  @@index([shareId, createdAt])
+}
+
+model ShareUpload {
+  id          String   @id @default(cuid())
+  actorId     String
+  shareId     Int?
+  name        String
+  mimeType    String
+  sizeBytes   Int
+  bucket      String
+  storagePath String
+  uploadToken String
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  share Share? @relation(fields: [shareId], references: [id], onDelete: SetNull)
+
+  @@index([actorId, createdAt])
+  @@index([actorId, consumedAt, expiresAt])
   @@index([shareId, createdAt])
 }
