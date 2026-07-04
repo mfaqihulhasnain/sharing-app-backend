@@ -9,42 +9,42 @@ const SALT_ROUNDS = 10;
 const usersSeed = [
   {
     name: "You",
-    email: "you@sharing.local",
+    email: "you@nearboards.local",
   },
   {
     name: "Ali",
-    email: "ali@sharing.local",
+    email: "ali@nearboards.local",
   },
   {
     name: "Sara",
-    email: "sara@sharing.local",
+    email: "sara@nearboards.local",
   },
   {
     name: "Maya",
-    email: "maya@sharing.local",
+    email: "maya@nearboards.local",
   },
   {
     name: "Ahmed",
-    email: "ahmed@sharing.local",
+    email: "ahmed@nearboards.local",
   },
   {
     name: "Noah",
-    email: "noah@sharing.local",
+    email: "noah@nearboards.local",
   },
 ];
 
 const sharesSeed = [
   {
-    senderEmail: "ali@sharing.local",
+    senderEmail: "ali@nearboards.local",
     createdAt: "2026-04-16T09:14:00+05:00",
     audienceEmails: [],
     text: "Morning update: drop any files or notes for today's Wi-Fi handoff here so the whole room can stay aligned.",
     files: [],
   },
   {
-    senderEmail: "sara@sharing.local",
+    senderEmail: "sara@nearboards.local",
     createdAt: "2026-04-16T09:42:00+05:00",
-    audienceEmails: ["you@sharing.local", "maya@sharing.local"],
+    audienceEmails: ["you@nearboards.local", "maya@nearboards.local"],
     text: "Latest floor plan attached for Maya and this device.",
     files: [
       {
@@ -55,16 +55,16 @@ const sharesSeed = [
     ],
   },
   {
-    senderEmail: "maya@sharing.local",
+    senderEmail: "maya@nearboards.local",
     createdAt: "2026-04-16T10:03:00+05:00",
     audienceEmails: [],
     text: "Fresh signage ideas are ready. If anyone prints samples locally, place the exports here instead of sending them around one by one.",
     files: [],
   },
   {
-    senderEmail: "noah@sharing.local",
+    senderEmail: "noah@nearboards.local",
     createdAt: "2026-04-16T10:37:00+05:00",
-    audienceEmails: ["you@sharing.local"],
+    audienceEmails: ["you@nearboards.local"],
     text: "",
     files: [
       {
@@ -76,7 +76,7 @@ const sharesSeed = [
     ],
   },
   {
-    senderEmail: "ahmed@sharing.local",
+    senderEmail: "ahmed@nearboards.local",
     createdAt: "2026-04-16T11:08:00+05:00",
     audienceEmails: [],
     text: "",
@@ -89,9 +89,9 @@ const sharesSeed = [
     ],
   },
   {
-    senderEmail: "sara@sharing.local",
+    senderEmail: "sara@nearboards.local",
     createdAt: "2026-04-16T11:26:00+05:00",
-    audienceEmails: ["ali@sharing.local", "ahmed@sharing.local"],
+    audienceEmails: ["ali@nearboards.local", "ahmed@nearboards.local"],
     text: "Quiet note for Ali and Ahmed: booth invoice copy is on the board for your review before noon.",
     files: [],
   },
@@ -281,3 +281,4 @@ runSeed()
     await prisma.$disconnect();
     log("Database connection closed.");
   });
+

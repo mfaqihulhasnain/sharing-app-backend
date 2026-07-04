@@ -33,16 +33,16 @@ const getTransporter = () => {
   return transporter;
 };
 
-const getFromAddress = () => env.MAIL_FROM || "Sharing Board <no-reply@sharing.local>";
+const getFromAddress = () => env.MAIL_FROM || "Nearboards <no-reply@nearboards.local>";
 
 const sendVerificationEmail = async ({ to, name, verificationUrl, expiresAt }) => {
   const expiresLabel = expiresAt.toUTCString();
   const safeName = name || "there";
-  const subject = "Verify your email for Sharing Board";
+  const subject = "Verify your email for Nearboards";
   const text = [
     `Hi ${safeName},`,
     "",
-    "Please verify your email address to activate your Sharing Board account.",
+    "Please verify your email address to activate your Nearboards account.",
     `Verification link: ${verificationUrl}`,
     `This link expires at ${expiresLabel}.`,
     "",
@@ -50,7 +50,7 @@ const sendVerificationEmail = async ({ to, name, verificationUrl, expiresAt }) =
   ].join("\n");
   const html = `
     <p>Hi ${safeName},</p>
-    <p>Please verify your email address to activate your Sharing Board account.</p>
+    <p>Please verify your email address to activate your Nearboards account.</p>
     <p><a href="${verificationUrl}">Verify email</a></p>
     <p>This link expires at <strong>${expiresLabel}</strong>.</p>
     <p>If you did not create this account, you can ignore this email.</p>
@@ -69,11 +69,11 @@ const sendVerificationEmail = async ({ to, name, verificationUrl, expiresAt }) =
 const sendPasswordResetEmail = async ({ to, name, resetUrl, expiresAt }) => {
   const expiresLabel = expiresAt.toUTCString();
   const safeName = name || "there";
-  const subject = "Reset your Sharing Board password";
+  const subject = "Reset your Nearboards password";
   const text = [
     `Hi ${safeName},`,
     "",
-    "We received a request to reset your Sharing Board password.",
+    "We received a request to reset your Nearboards password.",
     `Reset link: ${resetUrl}`,
     `This link expires at ${expiresLabel}.`,
     "",
@@ -81,7 +81,7 @@ const sendPasswordResetEmail = async ({ to, name, resetUrl, expiresAt }) => {
   ].join("\n");
   const html = `
     <p>Hi ${safeName},</p>
-    <p>We received a request to reset your Sharing Board password.</p>
+    <p>We received a request to reset your Nearboards password.</p>
     <p><a href="${resetUrl}">Reset password</a></p>
     <p>This link expires at <strong>${expiresLabel}</strong>.</p>
     <p>If you did not request this reset, you can ignore this email.</p>
@@ -98,3 +98,4 @@ const sendPasswordResetEmail = async ({ to, name, resetUrl, expiresAt }) => {
 };
 
 export { sendVerificationEmail, sendPasswordResetEmail };
+
