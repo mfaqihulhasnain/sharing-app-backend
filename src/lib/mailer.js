@@ -221,6 +221,12 @@ const sendVerificationEmail = async ({
 const sendPasswordResetEmail = async ({ to, name, resetUrl, expiresAt }) => {
   const expiresLabel = expiresAt.toUTCString();
   const safeName = name || "there";
+  const escapedName = escapeHtml(safeName);
+  const escapedResetUrl = escapeHtml(resetUrl);
+  const escapedExpiresLabel = escapeHtml(expiresLabel);
+  const logoUrl = new URL("/nearboards-logo-email.png", resetUrl).toString();
+  const escapedLogoUrl = escapeHtml(logoUrl);
+  const currentYear = new Date().getUTCFullYear();
   const subject = "Reset your Nearboards password";
   const text = [
     `Hi ${safeName},`,
@@ -231,13 +237,142 @@ const sendPasswordResetEmail = async ({ to, name, resetUrl, expiresAt }) => {
     "",
     "If you did not request this reset, you can ignore this email.",
   ].join("\n");
-  const html = `
-    <p>Hi ${safeName},</p>
-    <p>We received a request to reset your Nearboards password.</p>
-    <p><a href="${resetUrl}">Reset password</a></p>
-    <p>This link expires at <strong>${expiresLabel}</strong>.</p>
-    <p>If you did not request this reset, you can ignore this email.</p>
-  `;
+  const html = `<!doctype html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns:o="urn:schemas-microsoft-com:office:office">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="x-apple-disable-message-reformatting">
+    <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no">
+    <title>Reset your Nearboards password</title>
+    <!--[if mso]>
+      <noscript>
+        <xml>
+          <o:OfficeDocumentSettings>
+            <o:PixelsPerInch>96</o:PixelsPerInch>
+          </o:OfficeDocumentSettings>
+        </xml>
+      </noscript>
+    <![endif]-->
+    <style>
+      @media only screen and (max-width: 620px) {
+        .email-shell { width: 100% !important; }
+        .mobile-gutter { padding-left: 20px !important; padding-right: 20px !important; }
+        .hero-title { font-size: 30px !important; line-height: 36px !important; }
+        .mobile-full { width: 100% !important; }
+      }
+    </style>
+  </head>
+  <body style="margin:0; padding:0; width:100%; background-color:#f1f5f9; color:#0f172a; font-family:'Segoe UI',Arial,Helvetica,sans-serif; -webkit-font-smoothing:antialiased;">
+    <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent; mso-hide:all;">
+      Reset your Nearboards password using this secure, time-limited link.
+    </div>
+    <div style="display:none; max-height:0; overflow:hidden; mso-hide:all;">&#847;&zwnj;&nbsp;&#8199;&zwnj;&nbsp;&#65279;&zwnj;&nbsp;</div>
+
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%; border-collapse:collapse; background-color:#f1f5f9;">
+      <tr>
+        <td align="center" style="padding:36px 12px;">
+          <!--[if mso]><table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0"><tr><td><![endif]-->
+          <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" class="email-shell" style="width:100%; max-width:600px; border-collapse:separate; background-color:#ffffff; border:1px solid #e2e8f0; border-radius:24px; box-shadow:0 16px 42px rgba(15,23,42,0.08); overflow:hidden;">
+            <tr>
+              <td class="mobile-gutter" style="padding:24px 40px; background-color:#ffffff; border-bottom:1px solid #e2e8f0;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%; border-collapse:collapse;">
+                  <tr>
+                    <td align="left" valign="middle">
+                      <img src="${escapedLogoUrl}" width="165" height="36" alt="Nearboards" style="display:block; width:165px; height:36px; border:0; outline:none; text-decoration:none; color:#0f172a; font-size:20px; font-weight:700;">
+                    </td>
+                    <td align="right" valign="middle" style="padding-left:12px;">
+                      <span style="display:inline-block; padding:7px 11px; border:1px solid #bfdbfe; border-radius:999px; background-color:#eff6ff; color:#2563eb; font-size:10px; line-height:12px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; white-space:nowrap;">Security</span>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="mobile-gutter" style="padding:48px 40px 44px; background-color:#0f172a; background-image:linear-gradient(135deg,#0f172a 0%,#152b50 100%);">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%; border-collapse:collapse;">
+                  <tr>
+                    <td style="padding-bottom:20px;">
+                      <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;">
+                        <tr>
+                          <td align="center" valign="middle" width="30" height="30" style="width:30px; height:30px; border-radius:15px; background-color:#dbeafe; color:#2563eb; font-size:17px; line-height:30px; font-weight:700;">&#8635;</td>
+                          <td style="padding-left:10px; color:#bfdbfe; font-size:12px; line-height:18px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase;">Password reset requested</td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="hero-title" style="color:#ffffff; font-size:38px; line-height:44px; font-weight:700; letter-spacing:-1px;">Let&rsquo;s secure your account,<br>${escapedName}.</td>
+                  </tr>
+                  <tr>
+                    <td style="padding-top:18px; color:#cbd5e1; font-size:16px; line-height:26px;">We received a request to reset your Nearboards password. Use the secure link below to choose a new one.</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="mobile-gutter" style="padding:40px 40px 18px; background-color:#ffffff;">
+                <p style="margin:0; color:#0f172a; font-size:20px; line-height:28px; font-weight:700;">Choose a new password</p>
+                <p style="margin:10px 0 0; color:#64748b; font-size:15px; line-height:24px;">Click the button to open Nearboards and create a new password for your account. This link can only be used once.</p>
+              </td>
+            </tr>
+
+            <tr>
+              <td align="left" class="mobile-gutter" style="padding:14px 40px 24px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" class="mobile-full" style="border-collapse:separate;">
+                  <tr>
+                    <td align="center" bgcolor="#2563eb" style="border-radius:12px; box-shadow:0 8px 20px rgba(37,99,235,0.24);">
+                      <!--[if mso]>
+                        <v:roundrect href="${escapedResetUrl}" style="height:50px;v-text-anchor:middle;width:200px;" arcsize="24%" strokecolor="#2563eb" fillcolor="#2563eb">
+                          <w:anchorlock/>
+                          <center style="color:#ffffff;font-family:'Segoe UI',Arial,sans-serif;font-size:15px;font-weight:700;">Reset password</center>
+                        </v:roundrect>
+                      <![endif]-->
+                      <!--[if !mso]><!-- -->
+                      <a href="${escapedResetUrl}" target="_blank" style="display:inline-block; padding:15px 27px; border:1px solid #2563eb; border-radius:12px; background-color:#2563eb; color:#ffffff; font-size:15px; line-height:18px; font-weight:700; text-decoration:none;">Reset password&nbsp;&nbsp;&#8594;</a>
+                      <!--<![endif]-->
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="mobile-gutter" style="padding:0 40px 24px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%; border-collapse:separate; background-color:#f8fafc; border:1px solid #e2e8f0; border-radius:14px;">
+                  <tr>
+                    <td width="42" valign="top" style="width:42px; padding:16px 0 16px 16px; color:#2563eb; font-size:18px; line-height:22px;">&#9201;</td>
+                    <td style="padding:15px 16px 15px 8px; color:#64748b; font-size:13px; line-height:20px;">
+                      For your security, this password reset link expires at<br>
+                      <strong style="color:#0f172a; font-weight:600;">${escapedExpiresLabel}</strong>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="mobile-gutter" style="padding:0 40px 38px;">
+                <p style="margin:0; color:#7b8ba1; font-size:12px; line-height:19px;">If the button does not work, copy and paste this link into your browser:</p>
+                <p style="margin:7px 0 0; word-break:break-all; color:#2563eb; font-size:12px; line-height:19px;"><a href="${escapedResetUrl}" target="_blank" style="color:#2563eb; text-decoration:underline;">${escapedResetUrl}</a></p>
+              </td>
+            </tr>
+
+            <tr>
+              <td class="mobile-gutter" style="padding:24px 40px; background-color:#f8fafc; border-top:1px solid #e2e8f0;">
+                <p style="margin:0; color:#64748b; font-size:12px; line-height:19px;">If you did not request this password reset, you can safely ignore this email. Your existing password will remain unchanged.</p>
+                <p style="margin:16px 0 0; color:#94a3b8; font-size:11px; line-height:17px;">&copy; ${currentYear} Nearboards. All rights reserved.<br>Built for clear updates and better team coordination.</p>
+              </td>
+            </tr>
+          </table>
+          <!--[if mso]></td></tr></table><![endif]-->
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
 
   const mailTransporter = getTransporter();
   await mailTransporter.sendMail({
